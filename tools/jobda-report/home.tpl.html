@@ -171,6 +171,8 @@
   .layer .ld { font-size:12px; color:var(--ink-2); line-height:1.5; }
   .layer-note { font-size:12px; color:var(--ink-2); background:color-mix(in srgb,var(--s4) 12%,transparent); border:1px dashed color-mix(in srgb,var(--s4) 50%,transparent); border-radius:8px; padding:9px 13px; margin-bottom:12px; }
   .layer-note b { color:var(--s4); }
+  .findings ul { display:grid; grid-template-columns:1fr 1fr; gap:10px 34px; }
+  @media(max-width:760px){ .findings ul{ grid-template-columns:1fr; } }
   .card-tools { margin-left:auto; display:flex; gap:8px; align-items:center; }
   .seg { display:inline-flex; border:1px solid var(--border); border-radius:8px; overflow:hidden; }
   .seg button { font:inherit; font-size:12px; padding:4px 11px; border:0; background:transparent; color:var(--ink-2); cursor:pointer; }
@@ -768,6 +770,8 @@ function renderHome(userAction){
   if(userAction && hstate.mode==='preset'){ const raw=_add(_maxD,-(hstate.n-1)); if(raw<DATA_START) toast('집계 시작일('+DATA_START+') 이후 데이터만 표시됩니다.'); }
   const rows=hRows(); const sum=k=>rows.reduce((s,r)=>s+(r[k]||0),0);
   document.getElementById('homeRange').textContent = rows.length? rows[0].d+' ~ '+rows[rows.length-1].d+' ('+rows.length+'일)':'데이터 없음';
+  // 프리셋/숫자 선택 시 우측 datepicker에도 반영
+  if(hstate.mode!=='custom' && rows.length){ const fi=document.getElementById('homeFrom'),ti=document.getElementById('homeTo'); if(fi) fi.value=rows[0].d; if(ti) ti.value=rows[rows.length-1].d; }
   hChips();
   const N=hstate.mode==='custom'?null:hstate.n; const wu=HOME.windowUsers||{}; let uv=null,un='';
   if(N!=null&&wu[N]!=null){uv=wu[N];un='정확(중복 제거)';}
