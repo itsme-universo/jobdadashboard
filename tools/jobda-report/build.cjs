@@ -268,17 +268,18 @@ function fillReport(tpl, chartjs, data, funnel, submits) {
 
   const today = kstToday(); const days = daysBetween(START, today);
   const archiveDir = path.join(OUT, 'dailyarchive'); fs.mkdirSync(archiveDir, { recursive: true });
-  const made = []; let lastDash = null;
+  const made = []; let lastDash = null, lastCm = null, lastFunnel = null, lastSubmits = null;
   for (const D of days) {
     const untilMs = new Date(D + 'T23:59:59.999+09:00').getTime();
     const [dash, cm] = await Promise.all([buildDashboard(db, D), buildCareerMemory(db, D)]);
     if (!dash.dailyVisits.length) { console.log('skip', D); continue; }
-    lastDash = dash;
+    lastDash = dash; lastCm = cm;
     const funnel = funnelUpTo(ev, untilMs, START);
     const rows = submitRows.filter((r) => r.day <= D);
     const submits = { period: `${START} ~ ${D}`, total: rows.reduce((s, r) => s + r.count, 0), note: "개인 식별자 없이 공고 단위 집계. 공고명은 페이지 제목에서 추출. '세션추정'은 목록/캘린더에서 제출되어 같은 세션의 가장 가까운 JD 방문으로 역추적한 값이라 실제와 다를 수 있음.", rows };
     fs.mkdirSync(path.join(archiveDir, D), { recursive: true });
     fs.writeFileSync(path.join(archiveDir, D, 'index.html'), fillReport(tpl, chartjs, { dashboard: dash, careerMemory: cm }, funnel, submits));
+    lastFunnel = funnel; lastSubmits = submits;
     made.push({ day: D, submits: submits.total });
     console.log('생성', D, `(누적 제출 ${submits.total})`);
   }
@@ -320,7 +321,13 @@ ${latest ? `<a class="latest" href="${WEB}/${latest}/">최신 리포트 (${lates
   const signMap = {}; for (const r of lastDash.authDaily) if (r._id.kind === 'signup') signMap[r._id.d] = (signMap[r._id.d] || 0) + r.n;
   const fullDaily = lastDash.dailyVisits.map((r) => ({ d: r._id, visits: r.visits, users: uMap[r._id] || 0, sessions: sMap[r._id] || 0, searches: qMap[r._id] || 0, signups: signMap[r._id] || 0, desktop: r.desktop || 0, mobile: r.mobile || 0, tablet: r.tablet || 0 }));
   const HOME = { generatedAt: new Date().toISOString(), latest: latestDay, fullDaily, windowUsers, features: lastDash.features, topRoutes: lastDash.topRoutes, topKeywords: lastDash.topKeywords };
-  const homeOut = homeTpl.replace('__CHARTJS__', () => chartjs).replace('__HOME__', () => noLt(JSON.stringify(HOME))).replace('__FLOWS__', () => noLt(JSON.stringify(flows)));
+  const homeOut = homeTpl
+    .replace('__CHARTJS__', () => chartjs)
+    .replace('__DATA__', () => noLt(JSON.stringify({ dashboard: lastDash, careerMemory: lastCm })))
+    .replace('__ROCKETFUNNEL__', () => noLt(JSON.stringify(lastFunnel)))
+    .replace('__ROCKET__', () => noLt(JSON.stringify(lastSubmits)))
+    .replace('__HOME__', () => noLt(JSON.stringify(HOME)))
+    .replace('__FLOWS__', () => noLt(JSON.stringify(flows)));
   const homeDoc = `<!DOCTYPE html>\n<html lang="ko">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<meta name="robots" content="noindex">\n</head>\n<body>\n${homeOut}\n</body>\n</html>\n`;
   fs.writeFileSync(path.join(REPO, 'index.html'), homeDoc); // 사이트 루트 = HOME
   console.log('HOME 생성 · latest', latestDay, '· 구간사용자', JSON.stringify(windowUsers));
