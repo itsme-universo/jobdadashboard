@@ -248,7 +248,7 @@ async function computeWindowUsers(db, latest) {
 function fillReport(tpl, chartjs, data, funnel, submits) {
   const out = tpl.replace('__CHARTJS__', () => chartjs).replace('__DATA__', () => noLt(JSON.stringify(data)))
     .replace('__ROCKETFUNNEL__', () => noLt(JSON.stringify(funnel))).replace('__ROCKET__', () => noLt(JSON.stringify(submits)));
-  return `<!DOCTYPE html>\n<html lang="ko">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<meta name="robots" content="noindex">\n</head>\n<body>\n${out}\n</body>\n</html>\n`;
+  return `<!DOCTYPE html>\n<html lang="ko" data-theme="dark">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<meta name="robots" content="noindex">\n</head>\n<body>\n${out}\n</body>\n</html>\n`;
 }
 
 (async () => {
@@ -286,7 +286,7 @@ function fillReport(tpl, chartjs, data, funnel, submits) {
   // 목록 index (절대경로)
   const rowsHtml = made.slice().reverse().map((m) => `<li><a href="${WEB}/${m.day}/">${m.day}</a> <span class="s">누적 제출 ${m.submits}건</span></li>`).join('\n');
   const latest = made[made.length - 1]?.day;
-  fs.writeFileSync(path.join(archiveDir, 'index.html'), `<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">
+  fs.writeFileSync(path.join(archiveDir, 'index.html'), `<!DOCTYPE html><html lang="ko" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">
 <title>JOBDA 행동 리포트 · 일별 아카이브</title><style>
 :root{color-scheme:light dark}body{font:15px/1.6 system-ui,-apple-system,"Segoe UI","Malgun Gothic",sans-serif;max-width:680px;margin:0 auto;padding:40px 24px;background:#fcfcfb;color:#0b0b0b}
 @media(prefers-color-scheme:dark){body{background:#0d0d0d;color:#fff}a{color:#7ab8ff}.s{color:#898781}}
@@ -308,7 +308,7 @@ ${latest ? `<a class="latest" href="${WEB}/${latest}/">최신 리포트 (${lates
   const shim = '<script>(function(){const B={"/api/campaigns":' + noLt(JSON.stringify(camp)) + '};window.fetch=async(u)=>{const k=Object.keys(B).find(k=>String(u).startsWith(k));if(k)return{ok:true,json:async()=>B[k]};return{ok:false,status:404,json:async()=>({error:"no"})}};})();</script>';
   ch = ch.replace('<script src="/vendor/chart.umd.js"></script>', shim + '\n<script>\n' + chartjs + '\n</script>').replace('<script src="/common.js"></script>', '<script>\n' + common + '\n</script>');
   const campDir = path.join(OUT, 'campaigns'); fs.mkdirSync(campDir, { recursive: true });
-  fs.writeFileSync(path.join(campDir, 'index.html'), `<!DOCTYPE html>\n<html lang="ko">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<meta name="robots" content="noindex">\n</head>\n<body>\n${ch}\n</body>\n</html>\n`);
+  fs.writeFileSync(path.join(campDir, 'index.html'), `<!DOCTYPE html>\n<html lang="ko" data-theme="dark">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<meta name="robots" content="noindex">\n</head>\n<body>\n${ch}\n</body>\n</html>\n`);
   console.log('캠페인 스냅샷 생성 · 캠페인수', camp.campaigns.length);
 
   // ===== HOME (기본 화면) — 날짜 필터 + 네트워크 그래프
@@ -328,7 +328,7 @@ ${latest ? `<a class="latest" href="${WEB}/${latest}/">최신 리포트 (${lates
     .replace('__ROCKET__', () => noLt(JSON.stringify(lastSubmits)))
     .replace('__HOME__', () => noLt(JSON.stringify(HOME)))
     .replace('__FLOWS__', () => noLt(JSON.stringify(flows)));
-  const homeDoc = `<!DOCTYPE html>\n<html lang="ko">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<meta name="robots" content="noindex">\n</head>\n<body>\n${homeOut}\n</body>\n</html>\n`;
+  const homeDoc = `<!DOCTYPE html>\n<html lang="ko" data-theme="dark">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<meta name="robots" content="noindex">\n</head>\n<body>\n${homeOut}\n</body>\n</html>\n`;
   fs.writeFileSync(path.join(REPO, 'index.html'), homeDoc); // 사이트 루트 = HOME
   console.log('HOME 생성 · latest', latestDay, '· 구간사용자', JSON.stringify(windowUsers));
 

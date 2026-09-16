@@ -140,12 +140,12 @@
   details.glossary li { font-size: 13px; color: var(--ink-2); line-height: 1.5; }
   details.glossary b { color: var(--ink); }
 
-  nav.tabs { display:flex; gap:6px; margin:14px 0 18px; align-items:center; }
+  nav.tabs { display:flex; gap:6px; margin:14px 0 16px; align-items:center; }
   nav.tabs a { text-decoration:none; color:var(--ink-2); font-size:13px; padding:6px 14px; border-radius:8px; border:1px solid transparent; }
   nav.tabs a.active { color:var(--ink); background:var(--surface); border-color:var(--border); font-weight:600; }
   nav.tabs .sec { margin-left:auto; display:flex; gap:6px; }
   nav.tabs .sec a { color:var(--muted); font-size:12px; }
-  .filterbar { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px 16px; margin-bottom:18px; display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
+  .filterbar { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px 16px; margin-bottom:16px; display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
   .chips { display:flex; flex-wrap:wrap; gap:6px; }
   .chip { border:1px solid var(--border); border-radius:999px; padding:5px 13px; font:inherit; font-size:13px; color:var(--ink-2); background:transparent; cursor:pointer; }
   .chip:hover { border-color:var(--baseline); color:var(--ink); }
@@ -155,6 +155,10 @@
   .fgroup input[type=number]{ width:62px; }
   .frange { font-size:12px; color:var(--muted); margin-left:auto; }
   .fdiv { width:1px; align-self:stretch; background:var(--grid); }
+  .subtabs { display:flex; gap:4px; margin:26px 0 14px; border-bottom:1px solid var(--grid); }
+  .subtabs a { text-decoration:none; color:var(--muted); font-size:15px; font-weight:600; padding:9px 16px; border-bottom:2px solid transparent; margin-bottom:-1px; }
+  .subtabs a:hover { color:var(--ink-2); }
+  .subtabs a.active { color:var(--s1); border-bottom-color:var(--s1); }
   .card-tools { margin-left:auto; display:flex; gap:8px; align-items:center; }
   .seg { display:inline-flex; border:1px solid var(--border); border-radius:8px; overflow:hidden; }
   .seg button { font:inherit; font-size:12px; padding:4px 11px; border:0; background:transparent; color:var(--ink-2); cursor:pointer; }
@@ -163,9 +167,9 @@
   .netlegend .dot { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:4px; vertical-align:middle; }
   .tip { display:inline-flex; align-items:center; justify-content:center; width:15px; height:15px; font-size:10px; font-style:normal; border-radius:50%; background:var(--grid); color:var(--ink-2); cursor:help; vertical-align:middle; }
   .tip:hover, .tip:focus { background:var(--s1); color:#fff; outline:none; }
-  #tooltip { position:fixed; z-index:200; max-width:280px; background:var(--ink); color:var(--page); font-size:12px; line-height:1.5; padding:8px 11px; border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,.25); pointer-events:none; opacity:0; transition:opacity .12s; }
+  #tooltip { position:fixed; z-index:200; max-width:300px; background:var(--ink); color:var(--page); font-size:12px; line-height:1.5; padding:8px 11px; border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,.25); pointer-events:none; opacity:0; transition:opacity .12s; }
   #tooltip.show { opacity:1; }
-  #toast { position:fixed; z-index:300; left:50%; bottom:28px; transform:translateX(-50%) translateY(20px); background:var(--down); color:#fff; font-size:13px; font-weight:600; padding:11px 18px; border-radius:10px; box-shadow:0 6px 20px rgba(0,0,0,.3); opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; }
+  #toast { position:fixed; z-index:300; left:50%; bottom:28px; transform:translateX(-50%) translateY(20px); background:var(--s2); color:#fff; font-size:13px; font-weight:600; padding:11px 18px; border-radius:10px; box-shadow:0 6px 20px rgba(0,0,0,.3); opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; max-width:88vw; }
   #toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
 
 </style>
@@ -178,12 +182,11 @@
     <p class="privacy">이 리포트는 집계 수치만 담고 있습니다 — 개인 식별 정보(이름·이메일·사용자 ID·IP)는 포함되지 않습니다. 원본 로그 보존 기간에 따라 최근 약 5일 구간을 다룹니다.</p>
   </div>
 
-
+  
   <nav class="tabs">
     <a href="/" class="active">홈</a>
     <div class="sec"><a href="/strategy/jobdabehavior/dailyarchive/">일별 아카이브 →</a><a href="/strategy/jobdabehavior/campaigns/">마케팅 캠페인 →</a></div>
   </nav>
-
   <div class="filterbar">
     <div class="chips" id="homeChips"></div>
     <div class="fdiv"></div>
@@ -193,54 +196,31 @@
     <span class="frange" id="homeRange"></span>
   </div>
 
-  <h2 class="section">기간 요약 <span class="tip" data-tip="위 날짜 필터로 선택한 기간의 요약입니다. 순 사용자는 프리셋 구간(1·3·7·14·30·90·180·365일)에서 중복 제거 정확값입니다.">ⓘ</span></h2>
-  <div class="kpis" id="homeKpis"></div>
-  <div class="grid">
-    <div class="card wide">
-      <h3>일별 추이</h3><p class="desc">선택 기간의 방문 · 세션 · 순 사용자(일별) · 가입</p>
-      <div class="plot" style="height:280px"><canvas id="cHomeTrend"></canvas></div>
-    </div>
-    <div class="card wide">
-      <h3>주요 페이지 간 이동 경로
-        <span class="tip" data-tip="세션(한 번의 방문) 안에서 A→B로 연속 이동한 횟수를 페이지 그룹 단위로 집계. 전체 기간 기준. 커리어메모리·로켓지원 동선 중심.">ⓘ</span>
-        <span class="card-tools"><span class="seg" id="homeEdgeMode"><button data-m="width" class="on">굵기로 표현</button><button data-m="value">값으로 표현</button></span></span>
-      </h3>
-      <p class="desc">보고 싶은 페이지를 선택하세요 (2개 이상) · 노드에 마우스를 올리면 관련 흐름만 강조</p>
-      <div class="chips" id="homeNetPick" style="margin-bottom:8px"></div>
-      <div class="netlegend" id="homeNetLegend"></div>
-      <div id="homeNet" class="plot"></div>
-      <details class="tbl"><summary>표 보기</summary><div class="scroll" id="tHomeNet"></div></details>
-    </div>
-  </div>
-
   <div class="findings">
     <h2>핵심 요약</h2>
     <ul id="findings"></ul>
   </div>
 
-  <h2 class="section">월간 요약</h2>
-  <p class="section-desc">
-    월 단위 집계. 기간을 선택해 보세요.
-    <select id="monthPick" class="month-pick"></select>
-  </p>
-  <div class="kpis" id="monthKpis"></div>
-  <details class="glossary"><summary>용어 설명 (ⓘ 지표가 헷갈릴 때)</summary>
-    <ul>
-      <li><b>방문(페이지뷰)</b> — 페이지가 열린 <b>총 횟수</b>. 한 사람이 5번 열면 방문 5.</li>
-      <li><b>세션</b> — 접속부터 이탈까지 한 묶음(한 번의 방문). 한 사람이 오전·오후 접속하면 세션 2.</li>
-      <li><b>순 사용자(UV)</b> — <b>중복 제거한 사람 수</b>. 로그인 사용자는 userSn, 비로그인은 세션 기준으로 셈. (그래서 방문·세션보다 항상 작음)</li>
-      <li><b>신규 가입</b> — 그 기간 회원가입을 <b>완료</b>한 수.</li>
-      <li><b>검색</b> — 검색을 실행한 총 횟수.</li>
-      <li><b>커리어메모리 전환율</b> — 커리어메모리 <b>방문자(순 사용자) 중</b> 노트 저장 또는 자료 업로드를 1회 이상 한 사람의 비율.</li>
-      <li>※ 월간 순 사용자는 그 달 전체 기준 중복 제거값이라, 일별 순 사용자를 더한 값과 다릅니다(같은 사람이 여러 날 접속).</li>
-    </ul>
-  </details>
-
-  <h2 class="section">1 · 전체 개요</h2>
-  <p class="section-desc">서비스 전체의 방문·사용자·세션 규모와 구성. <span class="hint">지표명 옆 ⓘ에 마우스를 올리면 설명이 나옵니다.</span></p>
-  <div class="kpis" id="kpis"></div>
+  <h2 class="section" style="margin-top:22px">기간 요약 <span class="tip" data-tip="위 날짜 필터로 선택한 기간의 요약입니다. 순 사용자는 프리셋 구간(1·3·7·14·30·90·180·365일)에서 중복 제거 정확값입니다.">ⓘ</span></h2>
+  <div class="kpis" id="homeKpis"></div>
   <div class="grid">
     <div class="card wide">
+      <h3>일별 추이</h3><p class="desc">선택 기간의 방문 · 세션 · 순 사용자(일별) · 가입</p>
+      <div class="plot" style="height:290px"><canvas id="cHomeTrend"></canvas></div>
+    </div>
+  </div>
+
+  <nav class="subtabs" id="subtabs">
+    <a href="#" data-t="overview" class="active">전체 개요</a>
+    <a href="#" data-t="cm">커리어메모리</a>
+    <a href="#" data-t="rocket">로켓지원</a>
+  </nav>
+  <div class="tabpanel" id="tab-overview">
+
+  <p class="section-desc" style="margin-top:0">전체 기간 구성 (아래 차트는 전체 기간 누적)</p>
+  <div class="kpis" id="kpis" style="display:none"></div>
+  <div class="grid">
+    <div class="card wide" style="display:none">
       <h3>일별 방문 · 순 사용자 · 세션</h3>
       <p class="desc">KST 일 단위</p>
       <div class="plot" style="height:270px"><canvas id="cTrend"></canvas></div>
@@ -259,8 +239,8 @@
       <details class="tbl"><summary>표 보기</summary><div class="scroll" id="tAuth"></div></details>
     </div>
     <div class="card">
-      <h3>기능 영역별 방문</h3>
-      <p class="desc">기간 합계 (feature 태그 기준)</p>
+      <h3>기능 영역별 방문 <span class="tip" data-tip="feature 태그별 방문 합계. 역량검사=/acca·/phs · 진입/로그인=홈·/login·/join·/oauth2 · 공고 탐색=/position·/jobs·/company · 매칭=/match · 커리어 메모리=/career-memory · 콘텐츠=/info · 마이페이지=/mypage · 지원=지원서 작성/제출 · 프로필=프로필 · 면접=면접 연습">ⓘ</span></h3>
+      <p class="desc">전체 기간 합계 (feature 태그 기준)</p>
       <div class="plot" style="height:310px"><canvas id="cFeature"></canvas></div>
       <details class="tbl"><summary>표 보기</summary><div class="scroll" id="tFeature"></div></details>
     </div>
@@ -278,7 +258,10 @@
     </div>
   </div>
 
-  <h2 class="section">2 · 커리어메모리 — 유입과 페이지 내 행동</h2>
+  
+  </div>
+  <div class="tabpanel" id="tab-cm">
+
   <p class="section-desc">CAREER_MEMORY_SLUG 페이지 기준. 어디서 들어와서, 얼마나 머물고, 무엇을 남기는가.</p>
   <div class="kpis" id="cmKpis"></div>
   <div class="grid">
@@ -324,7 +307,10 @@
     </div>
   </div>
 
-  <h2 class="section">3 · 로켓지원 — 단계별 진행 (교정판)</h2>
+  
+  </div>
+  <div class="tabpanel" id="tab-rocket">
+<h3 style="font-size:16px;margin:0 0 4px">로켓지원 · 단계별 진행</h3>
   <p class="section-desc">지원건(사용자×공고) 단위로, 각 단계는 "그 단계 이상까지 도달한 지원건 수"입니다. 이벤트 수가 아니라 지원건 도달 여부로 세어 퍼널이 단조 감소(monotonic)합니다. 최종 제출은 사용자×공고 유니크 = 크레딧 차감 실제 건수와 일치합니다.</p>
   <div class="kpis" id="rocketKpis"></div>
   <div class="grid">
@@ -356,6 +342,22 @@
       <span class="badge none">미확인</span> JD 방문 기록이 없어 해석 불가 (공고번호로 ATS 조회 필요)
     </p>
   </div>
+
+  </div>
+
+  <h2 class="section" style="margin-top:34px">주요 페이지 간 이동 경로
+    <span class="tip" data-tip="세션(한 번의 방문) 안에서 A→B로 연속 이동한 횟수를 페이지 그룹 단위로 집계. 전체 기간 기준. 커리어메모리·로켓지원 동선 중심.">ⓘ</span></h2>
+  <div class="card wide">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+      <span class="desc" style="margin:0">보고 싶은 페이지를 선택하세요 (2개 이상)</span>
+      <span class="card-tools"><span class="seg" id="homeEdgeMode"><button data-m="width" class="on">굵기로 표현</button><button data-m="value">값으로 표현</button></span></span>
+    </div>
+    <div class="chips" id="homeNetPick" style="margin-bottom:8px"></div>
+    <div class="netlegend" id="homeNetLegend"></div>
+    <div id="homeNet" class="plot"></div>
+    <details class="tbl"><summary>표 보기</summary><div class="scroll" id="tHomeNet"></div></details>
+  </div>
+
 
   <footer>
     데이터 출처: jobda DB의 tracking_daily_stat / tracking_user_daily_stat / tracking_log / search_log (읽기 전용 집계 조회).
@@ -573,7 +575,6 @@ function render() {
     tile('순 사용자' + info('중복 제거한 사람 수. 로그인=userSn, 비로그인=세션 기준. 방문·세션보다 항상 작음.'), at(users, idx), at(users, prevIdx), dateLabel) +
     tile('세션' + info('접속~이탈까지 한 묶음(한 번의 방문). 한 사람이 여러 번 접속하면 세션도 여러 개.'), at(sessions, idx), at(sessions, prevIdx), dateLabel) +
     tile('검색' + info('검색을 실행한 총 횟수.'), at(searches, idx), at(searches, prevIdx), dateLabel);
-  renderMonthly();
 
   makeChart('cTrend', { type: 'line',
     data: { labels, datasets: [lineDs('페이지 방문', visits, s1), lineDs('세션', sessions, s2), lineDs('순 사용자', users, s3)] },
@@ -720,12 +721,10 @@ function renderSubmits() {
 }
 
 
-// ===== HOME: 날짜필터 + 네트워크 =====
 const HOME = __HOME__;
 const FLOWS = __FLOWS__;
 const DATA_START = '2026-08-27';
 let homeCharts = [];
-// 커스텀 툴팁 엔진
 const _tt = document.getElementById('tooltip');
 function bindTips(root){ (root||document).querySelectorAll('.tip[data-tip]').forEach(el=>{ if(el.dataset.b) return; el.dataset.b='1';
   const pos=(e)=>{ const x=(e.clientX||0)+14,y=(e.clientY||0)+14; _tt.style.left=Math.min(x,innerWidth-_tt.offsetWidth-8)+'px'; _tt.style.top=Math.min(y,innerHeight-_tt.offsetHeight-8)+'px'; };
@@ -733,40 +732,42 @@ function bindTips(root){ (root||document).querySelectorAll('.tip[data-tip]').for
   el.addEventListener('mousemove',pos); el.addEventListener('mouseleave',()=>_tt.classList.remove('show'));
   el.addEventListener('focus',()=>{ const r=el.getBoundingClientRect(); _tt.textContent=el.dataset.tip; _tt.classList.add('show'); _tt.style.left=r.right+8+'px'; _tt.style.top=r.bottom+6+'px'; });
   el.addEventListener('blur',()=>_tt.classList.remove('show')); }); }
-// 토스트
-let _toastT; function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(_toastT); _toastT=setTimeout(()=>t.classList.remove('show'),2600); }
-// 날짜 유틸
-const _daily = HOME.fullDaily, _allD = _daily.map(r=>r.d), _minD=_allD[0], _maxD=HOME.latest;
+let _toastT; function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(_toastT); _toastT=setTimeout(()=>t.classList.remove('show'),3000); }
+const _daily=HOME.fullDaily,_allD=_daily.map(r=>r.d),_minD=_allD[0],_maxD=HOME.latest;
 const _add=(d,n)=>{ const x=new Date(d+'T00:00:00Z'); x.setUTCDate(x.getUTCDate()+n); return x.toISOString().slice(0,10); };
 const PRESETS=[{d:1,l:'1일'},{d:3,l:'3일'},{d:7,l:'7일'},{d:14,l:'2주'},{d:30,l:'1달'},{d:90,l:'3개월'},{d:180,l:'6개월'},{d:365,l:'1년'}];
-let hstate={mode:'preset',n:1,from:null,to:null};
+let hstate={mode:'preset',n:14,from:null,to:null};
 function hRows(){ let from,to; if(hstate.mode==='custom'){from=hstate.from;to=hstate.to;} else {to=_maxD;from=_add(_maxD,-(hstate.n-1)); if(from<_minD)from=_minD;} return _daily.filter(r=>r.d>=from&&r.d<=to); }
 function hChips(){ const c=document.getElementById('homeChips'); c.innerHTML=PRESETS.map(p=>'<button class="chip'+(hstate.mode==='preset'&&hstate.n===p.d?' on':'')+'" data-d="'+p.d+'">'+p.l+'</button>').join('');
-  c.querySelectorAll('.chip').forEach(b=>b.addEventListener('click',()=>{ hstate.mode='preset'; hstate.n=+b.dataset.d; document.getElementById('homeN').value=hstate.n; renderHome(); })); }
-function renderHome(){
+  c.querySelectorAll('.chip').forEach(b=>b.addEventListener('click',()=>{ hstate.mode='preset'; hstate.n=+b.dataset.d; document.getElementById('homeN').value=hstate.n; renderHome(true); })); }
+function renderHome(userAction){
   homeCharts.forEach(c=>c.destroy()); homeCharts=[];
+  // 데이터 시작(8/27) 이전을 요구하면 토스트
+  if(userAction && hstate.mode==='preset'){ const raw=_add(_maxD,-(hstate.n-1)); if(raw<DATA_START) toast('집계 시작일('+DATA_START+') 이후 데이터만 표시됩니다.'); }
   const rows=hRows(); const sum=k=>rows.reduce((s,r)=>s+(r[k]||0),0);
   document.getElementById('homeRange').textContent = rows.length? rows[0].d+' ~ '+rows[rows.length-1].d+' ('+rows.length+'일)':'데이터 없음';
   hChips();
-  const N = hstate.mode==='custom'?null:hstate.n; const wu=HOME.windowUsers||{};
-  let uv=null, un='';
-  if(N!=null && wu[N]!=null){ uv=wu[N]; un='정확(중복 제거)'; }
-  else if(N!=null){ const ks=Object.keys(wu).map(Number).sort((a,b)=>Math.abs(a-N)-Math.abs(b-N)); if(ks.length){uv=wu[ks[0]]; un='≈ 최근 '+ks[0]+'일 기준';} }
+  const N=hstate.mode==='custom'?null:hstate.n; const wu=HOME.windowUsers||{}; let uv=null,un='';
+  if(N!=null&&wu[N]!=null){uv=wu[N];un='정확(중복 제거)';}
+  else if(N!=null){ const ks=Object.keys(wu).map(Number).sort((a,b)=>Math.abs(a-N)-Math.abs(b-N)); if(ks.length){uv=wu[ks[0]];un='≈ 최근 '+ks[0]+'일 기준';} }
   else un='프리셋 기간에서만 정확';
   const T=(label,val,note,tp,suf)=>'<div class="tile"><div class="label">'+label+(tp?info(tp):'')+'</div><div class="value">'+(val==null?'–':(typeof val==='string'?val:fmt.format(val)))+(suf?'<small> '+suf+'</small>':'')+'</div><div class="delta" style="color:var(--muted)">'+(note||'')+'</div></div>';
   document.getElementById('homeKpis').innerHTML =
-    T('방문(페이지뷰)',sum('visits'),'페이지가 열린 총 횟수','한 사람이 여러 번 열면 그만큼 늘어나는 총 조회수(PV).')+
-    T('세션',sum('sessions'),'접속~이탈 묶음 수','한 번의 방문(접속부터 이탈까지).')+
-    T('순 사용자',uv,un,'중복 제거한 실제 사람 수. 로그인=userSn, 비로그인=세션. 일별 합산이 불가해 기간 전체로 다시 셈.')+
+    T('방문(페이지뷰)',sum('visits'),'페이지가 열린 총 횟수','jobda.im 하위 모든 페이지의 열람 횟수(PV) 합계. 한 사람이 여러 번/여러 페이지를 열면 그만큼 늘어남.')+
+    T('세션',sum('sessions'),'접속~이탈 묶음 수','한 번의 방문(접속부터 이탈까지). 한 사람이 오전·오후 접속하면 세션 2.')+
+    T('순 사용자',uv,un,'중복 제거한 실제 사람 수. 로그인=userSn, 비로그인=세션 기준. 일별 값을 더할 수 없어 기간 전체로 다시 셈.')+
     T('신규 가입',sum('signups'),'회원가입 완료','그 기간 회원가입을 완료한 수.')+
     T('검색',sum('searches'),'검색 실행 수','검색을 실행한 총 횟수.');
   const labels=rows.map(r=>r.d.slice(5).replace('-','/'));
   const line=(l,d,c)=>({label:l,data:d,borderColor:c,backgroundColor:c,borderWidth:2,pointRadius:rows.length>60?0:2,pointHoverRadius:5,tension:.15,pointBackgroundColor:c,pointBorderColor:cssVar('--surface'),pointBorderWidth:2});
-  const o=baseOptions();
-  homeCharts.push(new Chart(document.getElementById('cHomeTrend'),{type:'line',data:{labels,datasets:[line('방문',rows.map(r=>r.visits),cssVar('--s1')),line('세션',rows.map(r=>r.sessions),cssVar('--s2')),line('순 사용자(일)',rows.map(r=>r.users),cssVar('--s3')),line('가입',rows.map(r=>r.signups),cssVar('--s5'))]},options:o}));
+  homeCharts.push(new Chart(document.getElementById('cHomeTrend'),{type:'line',data:{labels,datasets:[line('방문',rows.map(r=>r.visits),cssVar('--s1')),line('세션',rows.map(r=>r.sessions),cssVar('--s2')),line('순 사용자(일)',rows.map(r=>r.users),cssVar('--s3')),line('가입',rows.map(r=>r.signups),cssVar('--s5'))]},options:baseOptions()}));
   bindTips();
 }
-// 네트워크 (노드 선택 + 굵기/값)
+// 탭
+function showTab(t){ ['overview','cm','rocket'].forEach(x=>{ const el=document.getElementById('tab-'+x); if(el) el.hidden=(x!==t); });
+  document.querySelectorAll('#subtabs a').forEach(a=>a.classList.toggle('active',a.dataset.t===t));
+  setTimeout(()=>{ try{charts.forEach(c=>c.resize());}catch(e){} },10); }
+// 네트워크
 const NET_GROUPS=['홈','로그인/가입','공고 탐색','역량검사','매칭','커리어메모리','마이페이지','콘텐츠'];
 let homeEdgeMode='width', netPick=null;
 function loadPick(){ if(netPick) return netPick; try{ const s=JSON.parse(localStorage.getItem('homeNetPick')); if(Array.isArray(s)&&s.length>=2) netPick=new Set(s);}catch{} if(!netPick){ const nv=Object.fromEntries(FLOWS.nodes.map(n=>[n.name,n.visits])); netPick=new Set(NET_GROUPS.filter(g=>nv[g]>0)); } return netPick; }
@@ -775,45 +776,47 @@ function hNetPick(){ const nv=Object.fromEntries(FLOWS.nodes.map(n=>[n.name,n.vi
   box.querySelectorAll('.chip').forEach(b=>b.addEventListener('click',()=>{ const g=b.dataset.g; if(pick.has(g)){ if(pick.size<=2){ toast('최소 2개는 선택해야 합니다'); return;} pick.delete(g);} else pick.add(g); try{localStorage.setItem('homeNetPick',JSON.stringify([...pick]));}catch{} hNetPick(); renderNet(); })); }
 function renderNet(){
   const slot=Object.fromEntries(NET_GROUPS.map((g,i)=>[g,'--s'+(i+1)])); const nodeV=Object.fromEntries(FLOWS.nodes.map(n=>[n.name,n.visits]));
-  const pick=loadPick(); const names=NET_GROUPS.filter(g=>nodeV[g]>0 && pick.has(g));
+  const pick=loadPick(); const names=NET_GROUPS.filter(g=>nodeV[g]>0&&pick.has(g));
   const edges=FLOWS.edges.filter(e=>pick.has(e.from)&&pick.has(e.to)&&nodeV[e.from]>0&&nodeV[e.to]>0).slice(0,28);
-  const el=document.getElementById('homeNet');
-  if(names.length<2||!edges.length){ el.innerHTML='<div style="padding:40px 0;text-align:center;color:var(--muted)">선택한 페이지 간 이동 흐름이 없습니다.</div>'; document.getElementById('homeNetLegend').innerHTML=''; return; }
-  const W=940,H=640,CX=W/2,CY=H/2,R=230; const vMax=Math.max(...names.map(g=>nodeV[g])),eMax=Math.max(...edges.map(e=>e.n),1);
+  const host=document.getElementById('homeNet');
+  if(names.length<2||!edges.length){ host.innerHTML='<div style="padding:40px 0;text-align:center;color:var(--muted)">선택한 페이지 간 이동 흐름이 없습니다.</div>'; document.getElementById('homeNetLegend').innerHTML=''; return; }
+  const W=940,H=640,CX=W/2,CY=H/2,R=230,vMax=Math.max(...names.map(g=>nodeV[g])),eMax=Math.max(...edges.map(e=>e.n),1);
   const pos={},rad={}; names.forEach((g,i)=>{ const a=-Math.PI/2+(i*2*Math.PI)/names.length; pos[g]={x:CX+R*Math.cos(a),y:CY+R*Math.sin(a),a}; rad[g]=16+26*Math.sqrt(nodeV[g]/vMax); });
   const col=g=>cssVar(slot[g]); const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); let eSvg='';
-  edges.forEach(e=>{ const p1=pos[e.from],p2=pos[e.to]; const mx=(p1.x+p2.x)/2,my=(p1.y+p2.y)/2,dx=p2.x-p1.x,dy=p2.y-p1.y,len=Math.hypot(dx,dy)||1,nx=-dy/len,ny=dx/len;
-    const cx=mx+(CX-mx)*.28-nx*18,cy=my+(CY-my)*.28-ny*18; const sdx=cx-p1.x,sdy=cy-p1.y,sl=Math.hypot(sdx,sdy)||1,x1=p1.x+sdx/sl*rad[e.from],y1=p1.y+sdy/sl*rad[e.from];
-    const edx=p2.x-cx,edy=p2.y-cy,el2=Math.hypot(edx,edy)||1,ux=edx/el2,uy=edy/el2; const w=homeEdgeMode==='width'?(1.5+10*Math.sqrt(e.n/eMax)):2.5;
-    const aw=Math.max(4,w*1.4),al=Math.max(8,w*2.2),gap=rad[e.to]+al+2,x2=p2.x-edx/el2*gap,y2=p2.y-edy/el2*gap; const ax=x2+ux*al,ay=y2+uy*al,arrow=ax+','+ay+' '+(x2- -uy*aw)+','+(y2-ux*aw)+' '+(x2+ -uy*aw)+','+(y2+ux*aw);
+  edges.forEach(e=>{ const p1=pos[e.from],p2=pos[e.to],mx=(p1.x+p2.x)/2,my=(p1.y+p2.y)/2,dx=p2.x-p1.x,dy=p2.y-p1.y,len=Math.hypot(dx,dy)||1,nx=-dy/len,ny=dx/len;
+    const cx=mx+(CX-mx)*.28-nx*18,cy=my+(CY-my)*.28-ny*18,sdx=cx-p1.x,sdy=cy-p1.y,sl=Math.hypot(sdx,sdy)||1,x1=p1.x+sdx/sl*rad[e.from],y1=p1.y+sdy/sl*rad[e.from];
+    const edx=p2.x-cx,edy=p2.y-cy,el2=Math.hypot(edx,edy)||1,ux=edx/el2,uy=edy/el2,w=homeEdgeMode==='width'?(1.5+10*Math.sqrt(e.n/eMax)):2.5;
+    const aw=Math.max(4,w*1.4),al=Math.max(8,w*2.2),gap=rad[e.to]+al+2,x2=p2.x-edx/el2*gap,y2=p2.y-edy/el2*gap,ax=x2+ux*al,ay=y2+uy*al,arrow=ax+','+ay+' '+(x2- -uy*aw)+','+(y2-ux*aw)+' '+(x2+ -uy*aw)+','+(y2+ux*aw);
     const c=col(e.from),t=.35,mt=1-t,lx=mt*mt*x1+2*mt*t*cx+t*t*x2,ly=mt*mt*y1+2*mt*t*cy+t*t*y2;
     const vt=homeEdgeMode==='value'?'<text x="'+lx+'" y="'+(ly+3.5)+'" text-anchor="middle" font-size="11" font-weight="600" fill="'+cssVar('--ink-2')+'" stroke="'+cssVar('--surface')+'" stroke-width="3" style="paint-order:stroke" pointer-events="none">'+fmt.format(e.n)+'</text>':'';
     eSvg+='<g class="fe" data-from="'+esc(e.from)+'" data-to="'+esc(e.to)+'"><title>'+esc(e.from)+' → '+esc(e.to)+' · '+fmt.format(e.n)+'회</title><path d="M '+x1+' '+y1+' Q '+cx+' '+cy+' '+x2+' '+y2+'" fill="none" stroke="'+c+'" stroke-width="'+w+'" stroke-opacity="0.45" stroke-linecap="round"/><polygon points="'+arrow+'" fill="'+c+'" fill-opacity="0.6"/>'+vt+'</g>'; });
-  let nSvg=''; names.forEach(g=>{ const p=pos[g],r=rad[g],c=col(g),out=r+12,lx=p.x+Math.cos(p.a)*out,ly=p.y+Math.sin(p.a)*out; const anc=Math.abs(Math.cos(p.a))<.35?'middle':(Math.cos(p.a)>0?'start':'end'),va=Math.sin(p.a)<-.35?-6:(Math.sin(p.a)>.35?14:4); const hi=g==='커리어메모리';
+  let nSvg=''; names.forEach(g=>{ const p=pos[g],r=rad[g],c=col(g),out=r+12,lx=p.x+Math.cos(p.a)*out,ly=p.y+Math.sin(p.a)*out,anc=Math.abs(Math.cos(p.a))<.35?'middle':(Math.cos(p.a)>0?'start':'end'),va=Math.sin(p.a)<-.35?-6:(Math.sin(p.a)>.35?14:4),hi=g==='커리어메모리';
     nSvg+='<g class="fn" data-node="'+esc(g)+'" tabindex="0"><title>'+esc(g)+' · 방문 '+fmt.format(nodeV[g])+'회</title><circle cx="'+p.x+'" cy="'+p.y+'" r="'+r+'" fill="'+c+'" fill-opacity="0.9" stroke="'+(hi?cssVar('--ink'):cssVar('--surface'))+'" stroke-width="'+(hi?3:2)+'"/><text x="'+lx+'" y="'+(ly+va)+'" text-anchor="'+anc+'" font-size="13" font-weight="'+(hi?800:600)+'" fill="'+cssVar('--ink')+'">'+esc(g)+'</text><text x="'+lx+'" y="'+(ly+va+15)+'" text-anchor="'+anc+'" font-size="11" fill="'+cssVar('--muted')+'">'+fmt.format(nodeV[g])+'회</text></g>'; });
-  el.innerHTML='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block" role="img" aria-label="주요 페이지 이동 경로">'+eSvg+nSvg+'</svg>';
+  host.innerHTML='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block" role="img" aria-label="주요 페이지 이동 경로">'+eSvg+nSvg+'</svg>';
   document.getElementById('homeNetLegend').innerHTML=names.map(g=>'<span><span class="dot" style="background:'+col(g)+'"></span>'+g+'</span>').join('');
-  const svg=el.querySelector('svg'),all=[...svg.querySelectorAll('.fe')]; const focus=g=>all.forEach(x=>x.style.opacity=(!g||x.dataset.from===g||x.dataset.to===g)?'1':'0.07');
+  const svg=host.querySelector('svg'),all=[...svg.querySelectorAll('.fe')],focus=g=>all.forEach(x=>x.style.opacity=(!g||x.dataset.from===g||x.dataset.to===g)?'1':'0.07');
   svg.querySelectorAll('.fn').forEach(x=>{ x.addEventListener('mouseenter',()=>focus(x.dataset.node)); x.addEventListener('mouseleave',()=>focus(null)); x.addEventListener('focus',()=>focus(x.dataset.node)); x.addEventListener('blur',()=>focus(null)); });
   table('tHomeNet',['이동 경로','이동 수'],FLOWS.edges.filter(e=>pick.has(e.from)&&pick.has(e.to)).slice(0,40).map(e=>[e.from+' → '+e.to,e.n]));
 }
 function homeInit(){
-  document.getElementById('homeN').value=1; document.getElementById('homeN').max=_allD.length;
+  document.getElementById('homeN').value=hstate.n; document.getElementById('homeN').max=_allD.length;
   const fi=document.getElementById('homeFrom'),ti=document.getElementById('homeTo'); fi.min=_minD; fi.max=_maxD; ti.min=_minD; ti.max=_maxD; fi.value=_maxD; ti.value=_maxD;
-  document.getElementById('homeN').addEventListener('input',()=>{ let v=Math.max(1,Math.min(365,+document.getElementById('homeN').value||1)); hstate.mode='preset'; hstate.n=v; renderHome(); });
+  document.getElementById('homeN').addEventListener('input',()=>{ let v=Math.max(1,Math.min(365,+document.getElementById('homeN').value||1)); hstate.mode='preset'; hstate.n=v; renderHome(true); });
   function applyCustom(){ let f=fi.value,t=ti.value; if(!f||!t) return; if(f>t){ const x=f; f=t; t=x; }
-    if(f<DATA_START){ toast('데이터는 '+DATA_START+'부터 있습니다. 시작일을 조정했어요.'); f=DATA_START; fi.value=f; }
-    hstate.mode='custom'; hstate.from=f; hstate.to=t; renderHome(); }
+    if(f<DATA_START){ toast('집계 시작일('+DATA_START+') 이후 데이터만 있습니다. 시작일을 조정했어요.'); f=DATA_START; fi.value=f; }
+    hstate.mode='custom'; hstate.from=f; hstate.to=t; renderHome(false); }
   fi.addEventListener('change',applyCustom); ti.addEventListener('change',applyCustom);
   document.getElementById('homeEdgeMode').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{ homeEdgeMode=b.dataset.m; document.getElementById('homeEdgeMode').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b)); renderNet(); }));
+  document.querySelectorAll('#subtabs a').forEach(a=>a.addEventListener('click',e=>{ e.preventDefault(); showTab(a.dataset.t); }));
 }
 
+render();
 homeInit();
-renderHome();
+renderHome(false);
 hNetPick();
 renderNet();
-render();
 bindTips();
-matchMedia('(prefers-color-scheme: dark)').addEventListener('change', ()=>{render();renderHome();renderNet();});
-new MutationObserver(()=>{render();renderHome();renderNet();}).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+showTab("overview");
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', ()=>{render();renderHome(false);renderNet();});
+new MutationObserver(()=>{render();renderHome(false);renderNet();}).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 </script>
