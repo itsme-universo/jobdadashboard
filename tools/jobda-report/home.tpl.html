@@ -143,8 +143,10 @@
   nav.tabs { display:flex; gap:6px; margin:14px 0 16px; align-items:center; }
   nav.tabs a { text-decoration:none; color:var(--ink-2); font-size:13px; padding:6px 14px; border-radius:8px; border:1px solid transparent; }
   nav.tabs a.active { color:var(--ink); background:var(--surface); border-color:var(--border); font-weight:600; }
-  nav.tabs .sec { margin-left:auto; display:flex; gap:6px; }
-  nav.tabs .sec a { color:var(--muted); font-size:12px; }
+  nav.tabs .sec { margin-left:auto; display:flex; gap:8px; flex-wrap:wrap; }
+  nav.tabs .sec a { color:#fff; background:var(--s1); font-size:13px; font-weight:700; padding:9px 16px; border-radius:9px; box-shadow:0 2px 10px color-mix(in srgb,var(--s1) 35%,transparent); }
+  nav.tabs .sec a:hover { filter:brightness(1.1); }
+  nav.tabs .sec a.alt { background:var(--s3); box-shadow:0 2px 10px color-mix(in srgb,var(--s3) 35%,transparent); }
   .filterbar { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px 16px; margin-bottom:16px; display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
   .chips { display:flex; flex-wrap:wrap; gap:6px; }
   .chip { border:1px solid var(--border); border-radius:999px; padding:5px 13px; font:inherit; font-size:13px; color:var(--ink-2); background:transparent; cursor:pointer; }
@@ -155,10 +157,20 @@
   .fgroup input[type=number]{ width:62px; }
   .frange { font-size:12px; color:var(--muted); margin-left:auto; }
   .fdiv { width:1px; align-self:stretch; background:var(--grid); }
-  .subtabs { display:flex; gap:4px; margin:26px 0 14px; border-bottom:1px solid var(--grid); }
-  .subtabs a { text-decoration:none; color:var(--muted); font-size:15px; font-weight:600; padding:9px 16px; border-bottom:2px solid transparent; margin-bottom:-1px; }
-  .subtabs a:hover { color:var(--ink-2); }
-  .subtabs a.active { color:var(--s1); border-bottom-color:var(--s1); }
+  .subtabs { display:flex; gap:8px; margin:26px 0 16px; flex-wrap:wrap; }
+  .subtabs a { text-decoration:none; color:var(--ink-2); font-size:14px; font-weight:700; padding:9px 20px; border-radius:10px; border:1px solid var(--border); background:var(--surface); }
+  .subtabs a:hover { border-color:var(--baseline); color:var(--ink); }
+  .subtabs a.active { color:#fff; background:var(--s1); border-color:transparent; box-shadow:0 2px 8px color-mix(in srgb,var(--s1) 40%,transparent); }
+  .layers { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin:4px 0 12px; }
+  @media(max-width:760px){ .layers{ grid-template-columns:1fr; } }
+  .layer { text-align:left; border:1.5px solid var(--border); background:var(--surface); border-radius:12px; padding:13px 15px; cursor:pointer; font:inherit; color:var(--ink); }
+  .layer:hover { border-color:var(--baseline); }
+  .layer.on { border-color:var(--s1); box-shadow:0 0 0 1px var(--s1) inset; }
+  .layer .ln { font-size:15px; font-weight:700; }
+  .layer .lf { display:inline-block; margin:5px 0 7px; font-size:12px; font-weight:600; color:var(--s1); background:color-mix(in srgb,var(--s1) 14%,transparent); padding:2px 8px; border-radius:6px; font-family:ui-monospace,monospace; }
+  .layer .ld { font-size:12px; color:var(--ink-2); line-height:1.5; }
+  .layer-note { font-size:12px; color:var(--ink-2); background:color-mix(in srgb,var(--s4) 12%,transparent); border:1px dashed color-mix(in srgb,var(--s4) 50%,transparent); border-radius:8px; padding:9px 13px; margin-bottom:12px; }
+  .layer-note b { color:var(--s4); }
   .card-tools { margin-left:auto; display:flex; gap:8px; align-items:center; }
   .seg { display:inline-flex; border:1px solid var(--border); border-radius:8px; overflow:hidden; }
   .seg button { font:inherit; font-size:12px; padding:4px 11px; border:0; background:transparent; color:var(--ink-2); cursor:pointer; }
@@ -185,7 +197,7 @@
   
   <nav class="tabs">
     <a href="/" class="active">홈</a>
-    <div class="sec"><a href="/strategy/jobdabehavior/dailyarchive/">일별 아카이브 →</a><a href="/strategy/jobdabehavior/campaigns/">마케팅 캠페인 →</a></div>
+    <div class="sec"><a href="/strategy/jobdabehavior/dailyarchive/">📅 일별 리포트 보러가기</a><a class="alt" href="/strategy/jobdabehavior/campaigns/">📣 마케팅 캠페인 결과 보러가기</a></div>
   </nav>
   <div class="filterbar">
     <div class="chips" id="homeChips"></div>
@@ -214,6 +226,7 @@
     <a href="#" data-t="overview" class="active">전체 개요</a>
     <a href="#" data-t="cm">커리어메모리</a>
     <a href="#" data-t="rocket">로켓지원</a>
+    <a href="#" data-t="flow">페이지 이동 경로</a>
   </nav>
   <div class="tabpanel" id="tab-overview">
 
@@ -344,20 +357,29 @@
   </div>
 
   </div>
+  <div class="tabpanel" id="tab-flow">
 
-  <h2 class="section" style="margin-top:34px">주요 페이지 간 이동 경로
-    <span class="tip" data-tip="세션(한 번의 방문) 안에서 A→B로 연속 이동한 횟수를 페이지 그룹 단위로 집계. 전체 기간 기준. 커리어메모리·로켓지원 동선 중심.">ⓘ</span></h2>
+  <p class="section-desc" style="margin-top:0">세션(한 번의 방문) 안에서 A→B로 연속 이동한 흐름을 페이지 그룹 단위로 집계 (전체 기간). 커리어메모리·로켓지원 동선 중심.</p>
+  <h3 style="font-size:15px;margin:0 0 2px">지표 레이어 <span class="tip" data-tip="같은 그래프를 세 가지 렌즈로 바꿔 봅니다. 선택한 레이어가 아래 굵기·색 농도·수치에 적용됩니다.">ⓘ</span></h3>
+  <div class="layers" id="homeLayers">
+    <button class="layer on" data-metric="count"><div class="ln">이동량</div><div class="lf">count(A→B)</div><div class="ld">A에서 B로 이동이 몇 번 발생했는지 절대량. 규모는 알 수 있지만 모수가 큰 기능이 과대 표현됨.</div></button>
+    <button class="layer" data-metric="cond"><div class="ln">전환율</div><div class="lf">P(B|A)</div><div class="ld">A를 방문한 다음 B로 이동한 비율. 모수 차이는 보정되지만, 원래 인기 많은 기능은 어디서 출발하든 높게 나옴.</div></button>
+    <button class="layer" data-metric="lift"><div class="ln">연관도</div><div class="lf">Lift = P(B|A) / P(B)</div><div class="ld">우연히 B에 도달할 확률 대비 몇 배인지. 1.0이면 무관계, 1보다 크면 실제로 강하게 이어지는 조합.</div></button>
+  </div>
+  <div class="layer-note" id="layerNote"></div>
   <div class="card wide">
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
       <span class="desc" style="margin:0">보고 싶은 페이지를 선택하세요 (2개 이상)</span>
       <span class="card-tools"><span class="seg" id="homeEdgeMode"><button data-m="width" class="on">굵기로 표현</button><button data-m="value">값으로 표현</button></span></span>
     </div>
     <div class="chips" id="homeNetPick" style="margin-bottom:8px"></div>
+    <div class="desc" id="homeNetHint" style="margin:0 0 6px">노드를 클릭하면 관련 흐름만 고정됩니다</div>
     <div class="netlegend" id="homeNetLegend"></div>
     <div id="homeNet" class="plot"></div>
-    <details class="tbl"><summary>표 보기</summary><div class="scroll" id="tHomeNet"></div></details>
+    <details class="tbl"><summary>표 보기 (이동량·전환율·연관도)</summary><div class="scroll" id="tHomeNet"></div></details>
   </div>
 
+  </div>
 
   <footer>
     데이터 출처: jobda DB의 tracking_daily_stat / tracking_user_daily_stat / tracking_log / search_log (읽기 전용 집계 조회).
@@ -764,12 +786,17 @@ function renderHome(userAction){
   bindTips();
 }
 // 탭
-function showTab(t){ ['overview','cm','rocket'].forEach(x=>{ const el=document.getElementById('tab-'+x); if(el) el.hidden=(x!==t); });
+function showTab(t){ ['overview','cm','rocket','flow'].forEach(x=>{ const el=document.getElementById('tab-'+x); if(el) el.hidden=(x!==t); });
+  if(t==='flow') renderNet();
   document.querySelectorAll('#subtabs a').forEach(a=>a.classList.toggle('active',a.dataset.t===t));
   setTimeout(()=>{ try{charts.forEach(c=>c.resize());}catch(e){} },10); }
 // 네트워크
 const NET_GROUPS=['홈','로그인/가입','공고 탐색','역량검사','매칭','커리어메모리','마이페이지','콘텐츠'];
-let homeEdgeMode='width', netPick=null;
+let homeEdgeMode='width', netMetric='count', netPick=null, netPinned=null;
+const LAYER_NOTE={count:'<b>착시 주의</b> 지금은 절대 이동량(count) 기준. 방문량이 압도적인 기능은 연결된 모든 엣지가 굵게 보이므로, 관계의 강도로 읽지 말 것.',cond:'<b>전환율 P(B|A)</b> 기준 — A 방문 후 B로 이동한 비율. 모수 차이는 보정되지만, 원래 인기 많은 기능은 어디서 출발하든 높게 나옴.',lift:'<b>연관도 Lift</b> 기준 — 우연히 B에 도달할 확률 대비 몇 배인지. 1.0이면 무관계, 1보다 크면 규모와 무관하게 진짜 강한 조합.'};
+function _flowStats(){ const outF={},inT={}; let tot=0; for(const e of FLOWS.edges){ outF[e.from]=(outF[e.from]||0)+e.n; inT[e.to]=(inT[e.to]||0)+e.n; tot+=e.n; } return {outF,inT,tot}; }
+function _mval(e,st){ if(netMetric==='count') return e.n; const p=e.n/(st.outF[e.from]||1); if(netMetric==='cond') return p; return p/((st.inT[e.to]||1)/(st.tot||1)); }
+function _mfmt(v){ if(netMetric==='count') return fmt.format(v); if(netMetric==='cond') return (v*100).toFixed(1)+'%'; return v.toFixed(2)+'×'; }
 function loadPick(){ if(netPick) return netPick; try{ const s=JSON.parse(localStorage.getItem('homeNetPick')); if(Array.isArray(s)&&s.length>=2) netPick=new Set(s);}catch{} if(!netPick){ const nv=Object.fromEntries(FLOWS.nodes.map(n=>[n.name,n.visits])); netPick=new Set(NET_GROUPS.filter(g=>nv[g]>0)); } return netPick; }
 function hNetPick(){ const nv=Object.fromEntries(FLOWS.nodes.map(n=>[n.name,n.visits])); const pick=loadPick(); const box=document.getElementById('homeNetPick');
   box.innerHTML=NET_GROUPS.filter(g=>nv[g]>0).map(g=>'<button class="chip'+(pick.has(g)?' on':'')+'" data-g="'+g+'">'+g+'</button>').join('');
@@ -780,23 +807,33 @@ function renderNet(){
   const edges=FLOWS.edges.filter(e=>pick.has(e.from)&&pick.has(e.to)&&nodeV[e.from]>0&&nodeV[e.to]>0).slice(0,28);
   const host=document.getElementById('homeNet');
   if(names.length<2||!edges.length){ host.innerHTML='<div style="padding:40px 0;text-align:center;color:var(--muted)">선택한 페이지 간 이동 흐름이 없습니다.</div>'; document.getElementById('homeNetLegend').innerHTML=''; return; }
-  const W=940,H=640,CX=W/2,CY=H/2,R=230,vMax=Math.max(...names.map(g=>nodeV[g])),eMax=Math.max(...edges.map(e=>e.n),1);
+  document.getElementById('layerNote').innerHTML=LAYER_NOTE[netMetric];
+  const st=_flowStats(); const valMax=Math.max(...edges.map(e=>_mval(e,st)),1e-9);
+  const W=940,H=640,CX=W/2,CY=H/2,R=230,vMax=Math.max(...names.map(g=>nodeV[g]));
   const pos={},rad={}; names.forEach((g,i)=>{ const a=-Math.PI/2+(i*2*Math.PI)/names.length; pos[g]={x:CX+R*Math.cos(a),y:CY+R*Math.sin(a),a}; rad[g]=16+26*Math.sqrt(nodeV[g]/vMax); });
   const col=g=>cssVar(slot[g]); const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); let eSvg='';
   edges.forEach(e=>{ const p1=pos[e.from],p2=pos[e.to],mx=(p1.x+p2.x)/2,my=(p1.y+p2.y)/2,dx=p2.x-p1.x,dy=p2.y-p1.y,len=Math.hypot(dx,dy)||1,nx=-dy/len,ny=dx/len;
     const cx=mx+(CX-mx)*.28-nx*18,cy=my+(CY-my)*.28-ny*18,sdx=cx-p1.x,sdy=cy-p1.y,sl=Math.hypot(sdx,sdy)||1,x1=p1.x+sdx/sl*rad[e.from],y1=p1.y+sdy/sl*rad[e.from];
-    const edx=p2.x-cx,edy=p2.y-cy,el2=Math.hypot(edx,edy)||1,ux=edx/el2,uy=edy/el2,w=homeEdgeMode==='width'?(1.5+10*Math.sqrt(e.n/eMax)):2.5;
+    const edx=p2.x-cx,edy=p2.y-cy,el2=Math.hypot(edx,edy)||1,ux=edx/el2,uy=edy/el2; const mv=_mval(e,st),mr=mv/valMax,w=homeEdgeMode==='width'?(1.5+10*Math.sqrt(mr)):2.5,op=(0.2+0.5*mr).toFixed(3);
     const aw=Math.max(4,w*1.4),al=Math.max(8,w*2.2),gap=rad[e.to]+al+2,x2=p2.x-edx/el2*gap,y2=p2.y-edy/el2*gap,ax=x2+ux*al,ay=y2+uy*al,arrow=ax+','+ay+' '+(x2- -uy*aw)+','+(y2-ux*aw)+' '+(x2+ -uy*aw)+','+(y2+ux*aw);
     const c=col(e.from),t=.35,mt=1-t,lx=mt*mt*x1+2*mt*t*cx+t*t*x2,ly=mt*mt*y1+2*mt*t*cy+t*t*y2;
-    const vt=homeEdgeMode==='value'?'<text x="'+lx+'" y="'+(ly+3.5)+'" text-anchor="middle" font-size="11" font-weight="600" fill="'+cssVar('--ink-2')+'" stroke="'+cssVar('--surface')+'" stroke-width="3" style="paint-order:stroke" pointer-events="none">'+fmt.format(e.n)+'</text>':'';
-    eSvg+='<g class="fe" data-from="'+esc(e.from)+'" data-to="'+esc(e.to)+'"><title>'+esc(e.from)+' → '+esc(e.to)+' · '+fmt.format(e.n)+'회</title><path d="M '+x1+' '+y1+' Q '+cx+' '+cy+' '+x2+' '+y2+'" fill="none" stroke="'+c+'" stroke-width="'+w+'" stroke-opacity="0.45" stroke-linecap="round"/><polygon points="'+arrow+'" fill="'+c+'" fill-opacity="0.6"/>'+vt+'</g>'; });
+    const vt=homeEdgeMode==='value'?'<text x="'+lx+'" y="'+(ly+3.5)+'" text-anchor="middle" font-size="11" font-weight="600" fill="'+cssVar('--ink-2')+'" stroke="'+cssVar('--surface')+'" stroke-width="3" style="paint-order:stroke" pointer-events="none">'+_mfmt(mv)+'</text>':'';
+    eSvg+='<g class="fe" data-from="'+esc(e.from)+'" data-to="'+esc(e.to)+'"><title>'+esc(e.from)+' → '+esc(e.to)+' · 이동량 '+fmt.format(e.n)+' · 전환율 '+(e.n/(st.outF[e.from]||1)*100).toFixed(1)+'% · 연관도 '+((e.n/(st.outF[e.from]||1))/((st.inT[e.to]||1)/(st.tot||1))).toFixed(2)+'×</title><path d="M '+x1+' '+y1+' Q '+cx+' '+cy+' '+x2+' '+y2+'" fill="none" stroke="'+c+'" stroke-width="'+w+'" stroke-opacity="'+op+'" stroke-linecap="round"/><polygon points="'+arrow+'" fill="'+c+'" fill-opacity="'+Math.min(0.85,+op+0.15)+'"/>'+vt+'</g>'; });
   let nSvg=''; names.forEach(g=>{ const p=pos[g],r=rad[g],c=col(g),out=r+12,lx=p.x+Math.cos(p.a)*out,ly=p.y+Math.sin(p.a)*out,anc=Math.abs(Math.cos(p.a))<.35?'middle':(Math.cos(p.a)>0?'start':'end'),va=Math.sin(p.a)<-.35?-6:(Math.sin(p.a)>.35?14:4),hi=g==='커리어메모리';
     nSvg+='<g class="fn" data-node="'+esc(g)+'" tabindex="0"><title>'+esc(g)+' · 방문 '+fmt.format(nodeV[g])+'회</title><circle cx="'+p.x+'" cy="'+p.y+'" r="'+r+'" fill="'+c+'" fill-opacity="0.9" stroke="'+(hi?cssVar('--ink'):cssVar('--surface'))+'" stroke-width="'+(hi?3:2)+'"/><text x="'+lx+'" y="'+(ly+va)+'" text-anchor="'+anc+'" font-size="13" font-weight="'+(hi?800:600)+'" fill="'+cssVar('--ink')+'">'+esc(g)+'</text><text x="'+lx+'" y="'+(ly+va+15)+'" text-anchor="'+anc+'" font-size="11" fill="'+cssVar('--muted')+'">'+fmt.format(nodeV[g])+'회</text></g>'; });
   host.innerHTML='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block" role="img" aria-label="주요 페이지 이동 경로">'+eSvg+nSvg+'</svg>';
   document.getElementById('homeNetLegend').innerHTML=names.map(g=>'<span><span class="dot" style="background:'+col(g)+'"></span>'+g+'</span>').join('');
-  const svg=host.querySelector('svg'),all=[...svg.querySelectorAll('.fe')],focus=g=>all.forEach(x=>x.style.opacity=(!g||x.dataset.from===g||x.dataset.to===g)?'1':'0.07');
-  svg.querySelectorAll('.fn').forEach(x=>{ x.addEventListener('mouseenter',()=>focus(x.dataset.node)); x.addEventListener('mouseleave',()=>focus(null)); x.addEventListener('focus',()=>focus(x.dataset.node)); x.addEventListener('blur',()=>focus(null)); });
-  table('tHomeNet',['이동 경로','이동 수'],FLOWS.edges.filter(e=>pick.has(e.from)&&pick.has(e.to)).slice(0,40).map(e=>[e.from+' → '+e.to,e.n]));
+  const svg=host.querySelector('svg'),all=[...svg.querySelectorAll('.fe')];
+  const focus=g=>{ all.forEach(x=>x.style.opacity=(!g||x.dataset.from===g||x.dataset.to===g)?'1':'0.06'); svg.querySelectorAll('.fn circle').forEach(c=>c.style.opacity=1); };
+  function setHint(){ const el=document.getElementById('homeNetHint'); if(el) el.textContent = netPinned? ('선택 고정: '+netPinned+' — 다시 클릭하면 해제') : '노드를 클릭하면 관련 흐름만 고정됩니다'; }
+  if(netPinned && !names.includes(netPinned)) netPinned=null;
+  focus(netPinned); setHint();
+  svg.querySelectorAll('.fn').forEach(x=>{ x.style.cursor='pointer';
+    const toggle=()=>{ netPinned=(netPinned===x.dataset.node?null:x.dataset.node); focus(netPinned); setHint(); };
+    x.addEventListener('click',toggle);
+    x.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); toggle(); } }); });
+  { const rs=FLOWS.edges.filter(e=>pick.has(e.from)&&pick.has(e.to)).slice(0,40);
+    document.getElementById('tHomeNet').innerHTML='<table><thead><tr><th>이동 경로</th><th>이동량</th><th>전환율</th><th>연관도</th></tr></thead><tbody>'+rs.map(e=>{const p=e.n/(st.outF[e.from]||1),lf=p/((st.inT[e.to]||1)/(st.tot||1));return '<tr><td>'+e.from+' → '+e.to+'</td><td>'+fmt.format(e.n)+'</td><td>'+(p*100).toFixed(1)+'%</td><td>'+lf.toFixed(2)+'×</td></tr>';}).join('')+'</tbody></table>'; }
 }
 function homeInit(){
   document.getElementById('homeN').value=hstate.n; document.getElementById('homeN').max=_allD.length;
@@ -807,6 +844,7 @@ function homeInit(){
     hstate.mode='custom'; hstate.from=f; hstate.to=t; renderHome(false); }
   fi.addEventListener('change',applyCustom); ti.addEventListener('change',applyCustom);
   document.getElementById('homeEdgeMode').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{ homeEdgeMode=b.dataset.m; document.getElementById('homeEdgeMode').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b)); renderNet(); }));
+  document.getElementById('homeLayers').querySelectorAll('.layer').forEach(b=>b.addEventListener('click',()=>{ netMetric=b.dataset.metric; document.getElementById('homeLayers').querySelectorAll('.layer').forEach(x=>x.classList.toggle('on',x===b)); renderNet(); }));
   document.querySelectorAll('#subtabs a').forEach(a=>a.addEventListener('click',e=>{ e.preventDefault(); showTab(a.dataset.t); }));
 }
 

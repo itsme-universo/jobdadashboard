@@ -68,8 +68,8 @@ const rk = (r) => ROUTE_KO[r] || r;
 // 전환 퍼널 단계 정의 (분모 = 유입 세션)
 const STEPS = [
   ['sessions','유입 세션', (c)=>c.sessions],
-  ['login','로그인', (c)=>c.conv.login],
   ['cm','커리어메모리 방문', (c)=>c.conv.cm],
+  ['login','로그인', (c)=>c.conv.login],
   ['cmSave','기록 남김', (c)=>c.conv.cmSave],
   ['acca','역검 진입', (c)=>c.conv.acca],
   ['rocketStart','로켓 시작', (c)=>c.conv.rocketStart],
