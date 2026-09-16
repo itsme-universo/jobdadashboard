@@ -1,0 +1,283 @@
+<title>JOBDA 행동 대시보드</title>
+<style>
+  :root { color-scheme: light; --page:#f9f9f7; --surface:#fcfcfb; --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781; --grid:#e1e0d9; --baseline:#c3c2b7; --border:rgba(11,11,11,0.10); --up:#006300; --down:#d03b3b;
+    --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4; --s6:#008300; --s7:#4a3aa7; --s8:#e34948; }
+  @media (prefers-color-scheme: dark) { :root:where(:not([data-theme="light"])) { color-scheme:dark; --page:#0d0d0d; --surface:#1a1a19; --ink:#fff; --ink-2:#c3c2b7; --muted:#898781; --grid:#2c2c2a; --baseline:#383835; --border:rgba(255,255,255,0.10); --up:#0ca30c; --down:#e66767;
+    --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#008300; --s7:#9085e9; --s8:#e66767; } }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--page); color:var(--ink); font:14px/1.55 system-ui,-apple-system,"Segoe UI","Malgun Gothic",sans-serif; }
+  .wrap { max-width:1180px; margin:0 auto; padding:24px 20px 64px; }
+  header { display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; }
+  h1 { font-size:22px; font-weight:800; margin:0; letter-spacing:-0.5px; }
+  .sub { color:var(--ink-2); font-size:13px; }
+  .toolbar { margin-left:auto; display:flex; gap:10px; align-items:center; }
+  nav.tabs { display:flex; gap:6px; margin:14px 0 20px; }
+  nav.tabs a { text-decoration:none; color:var(--ink-2); font-size:13px; padding:6px 14px; border-radius:8px; border:1px solid transparent; }
+  nav.tabs a:hover { color:var(--ink); }
+  nav.tabs a.active { color:var(--ink); background:var(--surface); border-color:var(--border); font-weight:600; }
+  nav.tabs .secondary { margin-left:auto; display:flex; gap:6px; }
+  nav.tabs .secondary a { color:var(--muted); font-size:12px; }
+
+  /* 날짜 필터 */
+  .filterbar { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px 16px; margin-bottom:18px; display:flex; flex-wrap:wrap; gap:14px; align-items:center; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; }
+  .chip { border:1px solid var(--border); border-radius:999px; padding:5px 13px; font:inherit; font-size:13px; color:var(--ink-2); background:transparent; cursor:pointer; }
+  .chip:hover { border-color:var(--baseline); color:var(--ink); }
+  .chip.on { background:var(--s1); color:#fff; border-color:transparent; font-weight:600; }
+  .fgroup { display:flex; align-items:center; gap:6px; font-size:13px; color:var(--ink-2); }
+  .fgroup input[type=number] { width:64px; }
+  .fgroup input, .filterbar input[type=date] { font:inherit; font-size:13px; padding:5px 9px; border-radius:8px; border:1px solid var(--border); background:var(--page); color:var(--ink); }
+  .frange { font-size:12px; color:var(--muted); margin-left:auto; }
+  .divider { width:1px; align-self:stretch; background:var(--grid); }
+
+  .kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px; margin-bottom:20px; }
+  .tile { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px 16px; }
+  .tile .label { color:var(--ink-2); font-size:13px; display:flex; align-items:center; gap:5px; }
+  .tile .value { font-size:28px; font-weight:700; letter-spacing:-0.5px; margin:3px 0 1px; }
+  .tile .value small { font-size:15px; font-weight:600; color:var(--ink-2); }
+  .tile .note { font-size:11px; color:var(--muted); }
+
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:860px){ .grid { grid-template-columns:1fr; } }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px 18px 12px; min-width:0; }
+  .card.wide { grid-column:1/-1; }
+  .card h2 { font-size:15px; font-weight:700; margin:0 0 2px; display:flex; align-items:center; gap:6px; }
+  .card .desc { color:var(--muted); font-size:12px; margin:0 0 10px; }
+  .plot { position:relative; }
+  .card-tools { margin-left:auto; display:flex; gap:6px; }
+  .seg { display:inline-flex; border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+  .seg button { font:inherit; font-size:12px; padding:4px 11px; border:0; background:transparent; color:var(--ink-2); cursor:pointer; }
+  .seg button.on { background:var(--s1); color:#fff; font-weight:600; }
+
+  details.tbl { margin-top:8px; border-top:1px solid var(--grid); padding-top:6px; }
+  details.tbl summary { color:var(--muted); font-size:12px; cursor:pointer; }
+  details.tbl .scroll { overflow-x:auto; }
+  details.tbl table { border-collapse:collapse; font-size:12px; margin-top:6px; min-width:100%; }
+  details.tbl th, details.tbl td { padding:4px 10px; text-align:right; border-bottom:1px solid var(--grid); white-space:nowrap; }
+  details.tbl th:first-child, details.tbl td:first-child { text-align:left; }
+  details.tbl th { color:var(--ink-2); font-weight:600; }
+  details.tbl td { font-variant-numeric:tabular-nums; color:var(--ink-2); }
+
+  /* 커스텀 툴팁 */
+  .tip { display:inline-flex; align-items:center; justify-content:center; width:15px; height:15px; font-size:10px; font-style:normal; border-radius:50%; background:var(--grid); color:var(--ink-2); cursor:help; }
+  .tip:hover, .tip:focus { background:var(--s1); color:#fff; outline:none; }
+  #tooltip { position:fixed; z-index:100; max-width:280px; background:var(--ink); color:var(--page); font-size:12px; line-height:1.5; padding:8px 11px; border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,0.25); pointer-events:none; opacity:0; transition:opacity .12s; }
+  #tooltip.show { opacity:1; }
+  footer { color:var(--muted); font-size:12px; margin-top:32px; border-top:1px solid var(--grid); padding-top:14px; }
+  .netlegend { display:flex; flex-wrap:wrap; gap:6px 14px; font-size:11px; color:var(--ink-2); margin:6px 0 4px; }
+  .netlegend .dot { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:4px; vertical-align:middle; }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>JOBDA 행동 대시보드</h1>
+    <span class="sub" id="meta"></span>
+    <div class="toolbar"><span class="sub" id="latestInfo"></span></div>
+  </header>
+  <nav class="tabs">
+    <a href="/" class="active">홈</a>
+    <div class="secondary">
+      <a href="/strategy/jobdabehavior/dailyarchive/">일별 아카이브 →</a>
+      <a href="/strategy/jobdabehavior/campaigns/">마케팅 캠페인 →</a>
+    </div>
+  </nav>
+
+  <div class="filterbar">
+    <div class="chips" id="chips"></div>
+    <div class="divider"></div>
+    <div class="fgroup">최근 <input type="number" id="nDays" min="1" max="365" step="1"> 일</div>
+    <div class="divider"></div>
+    <div class="fgroup"><input type="date" id="fromDate"> ~ <input type="date" id="toDate"></div>
+    <span class="frange" id="frange"></span>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="grid">
+    <div class="card wide">
+      <h2>일별 추이</h2>
+      <p class="desc">선택 기간의 방문 · 세션 · 순 사용자 · 가입</p>
+      <div class="plot" style="height:300px"><canvas id="cTrend"></canvas></div>
+      <details class="tbl"><summary>표 보기</summary><div class="scroll" id="tTrend"></div></details>
+    </div>
+
+    <div class="card wide">
+      <h2>주요 페이지 간 이동 경로 <span class="tip" data-tip="세션(한 번의 방문) 안에서 A페이지 → B페이지로 연속 이동한 횟수를 페이지 그룹 단위로 집계. 커리어메모리·로켓지원 동선을 중심으로 봅니다.">ⓘ</span>
+        <div class="card-tools">
+          <span class="seg" id="edgeMode"><button data-m="width" class="on">굵기로 표현</button><button data-m="value">값으로 표현</button></span>
+        </div>
+      </h2>
+      <p class="desc">노드 크기 = 방문량 · 선 = 이동 · 노드에 마우스를 올리면 관련 흐름만 강조 (전체 기간 기준)</p>
+      <div class="netlegend" id="netlegend"></div>
+      <div id="net" class="plot"></div>
+      <details class="tbl"><summary>표 보기</summary><div class="scroll" id="tNet"></div></details>
+    </div>
+
+    <div class="card">
+      <h2>디바이스별 방문</h2>
+      <p class="desc">선택 기간 · 일별 디바이스 구성</p>
+      <div class="plot" style="height:250px"><canvas id="cDevice"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>기능 영역별 방문 <span class="tip" data-tip="feature 태그 기준 방문 합계. 전체 기간 누적값입니다(기간 필터와 무관).">ⓘ</span></h2>
+      <p class="desc">전체 기간 누적</p>
+      <div class="plot" style="height:250px"><canvas id="cFeature"></canvas></div>
+    </div>
+  </div>
+
+  <footer>집계 전용 · 개인 식별정보 없음 · 데이터 출처: jobda.tracking_* · 순 사용자=userSn distinct</footer>
+</div>
+<div id="tooltip"></div>
+
+<script>__CHARTJS__</script>
+<script>
+const HOME = __HOME__;
+const FLOWS = __FLOWS__;
+const $ = (id) => document.getElementById(id);
+const fmt = new Intl.NumberFormat('ko-KR');
+const cssVar = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+let charts = [];
+const destroyCharts = () => { charts.forEach(c=>c.destroy()); charts=[]; };
+const mk = (id,cfg) => { const c=new Chart($(id),cfg); charts.push(c); return c; };
+
+// ---- 커스텀 툴팁 (고정 텍스트, 호버 시 팝업)
+const tt = $('tooltip');
+function bindTips(root){ (root||document).querySelectorAll('.tip[data-tip]').forEach(el=>{
+  if(el.dataset.bound) return; el.dataset.bound='1';
+  const show=(e)=>{ tt.textContent=el.dataset.tip; tt.classList.add('show'); pos(e); };
+  const pos=(e)=>{ const x=(e.clientX||0)+14, y=(e.clientY||0)+14; tt.style.left=Math.min(x,innerWidth-tt.offsetWidth-8)+'px'; tt.style.top=Math.min(y,innerHeight-tt.offsetHeight-8)+'px'; };
+  el.addEventListener('mouseenter',show); el.addEventListener('mousemove',pos);
+  el.addEventListener('mouseleave',()=>tt.classList.remove('show'));
+  el.addEventListener('focus',()=>{ const r=el.getBoundingClientRect(); tt.textContent=el.dataset.tip; tt.classList.add('show'); tt.style.left=r.right+8+'px'; tt.style.top=r.bottom+6+'px'; });
+  el.addEventListener('blur',()=>tt.classList.remove('show'));
+}); }
+const tip = (t) => `<span class="tip" data-tip="${String(t).replace(/"/g,'&quot;')}" tabindex="0">ⓘ</span>`;
+
+// ---- 날짜 필터
+const PRESETS = [{d:1,l:'1일'},{d:3,l:'3일'},{d:7,l:'7일'},{d:14,l:'2주'},{d:30,l:'1달'},{d:90,l:'3개월'},{d:180,l:'6개월'},{d:365,l:'1년'}];
+const daily = HOME.fullDaily;
+const allDays = daily.map(r=>r.d);
+const minDay = allDays[0], maxDay = HOME.latest;
+let state = { mode:'preset', nDays:1, from:null, to:null };
+
+function shortDay(d){ return d.slice(5).replace('-','/'); }
+function addDays(d,n){ const x=new Date(d+'T00:00:00Z'); x.setUTCDate(x.getUTCDate()+n); return x.toISOString().slice(0,10); }
+
+function rangeDays(){
+  let from, to;
+  if(state.mode==='custom'){ from=state.from; to=state.to; }
+  else { to=maxDay; from=addDays(maxDay, -(state.nDays-1)); if(from<minDay) from=minDay; }
+  return daily.filter(r=>r.d>=from && r.d<=to);
+}
+function currentN(){ if(state.mode==='custom') return null; return state.nDays; }
+
+function renderChips(){
+  $('chips').innerHTML = PRESETS.map(p=>`<button class="chip${state.mode==='preset'&&state.nDays===p.d?' on':''}" data-d="${p.d}">${p.l}</button>`).join('');
+  $('chips').querySelectorAll('.chip').forEach(b=>b.addEventListener('click',()=>{ state.mode='preset'; state.nDays=+b.dataset.d; $('nDays').value=state.nDays; render(); }));
+}
+
+function fmtRange(rows){ return rows.length ? `${rows[0].d} ~ ${rows[rows.length-1].d} (${rows.length}일)` : '데이터 없음'; }
+
+function render(){
+  destroyCharts();
+  const rows = rangeDays();
+  $('frange').textContent = fmtRange(rows);
+  const sum = (k)=>rows.reduce((s,r)=>s+(r[k]||0),0);
+  const N = currentN();
+  // 순 사용자: 프리셋 lookback이면 정확한 distinct, 아니면 안내
+  let uvVal=null, uvNote='';
+  const wu = HOME.windowUsers||{};
+  if(N!=null && wu[N]!=null){ uvVal=wu[N]; uvNote='정확(중복 제거)'; }
+  else if(N!=null){ // 가장 가까운 프리셋
+    const keys=Object.keys(wu).map(Number).sort((a,b)=>Math.abs(a-N)-Math.abs(b-N)); if(keys.length){ uvVal=wu[keys[0]]; uvNote=`≈ 최근 ${keys[0]}일 기준`; } }
+  else { uvNote='프리셋 기간에서만 정확'; }
+
+  const tile=(label,val,note,tipText,suffix)=>`<div class="tile"><div class="label">${label}${tipText?tip(tipText):''}</div><div class="value">${val==null?'–':(typeof val==='string'?val:fmt.format(val))}${suffix?`<small> ${suffix}</small>`:''}</div><div class="note">${note||''}</div></div>`;
+  $('kpis').innerHTML =
+    tile('방문(페이지뷰)', sum('visits'), '페이지가 열린 총 횟수', '한 사람이 여러 번 열면 그만큼 늘어나는 총 조회수(PV).') +
+    tile('세션', sum('sessions'), '접속~이탈 묶음 수', '한 번의 방문(접속부터 이탈까지). 한 사람이 오전·오후 접속하면 세션 2.') +
+    tile('순 사용자', uvVal, uvNote, '중복 제거한 실제 사람 수. 로그인=userSn, 비로그인=세션 기준. 일별 값을 더할 수 없어 기간 전체로 다시 셈.') +
+    tile('신규 가입', sum('signups'), '회원가입 완료', '그 기간 회원가입을 완료한 수.') +
+    tile('검색', sum('searches'), '검색 실행 수', '검색을 실행한 총 횟수.');
+  bindTips();
+
+  const labels = rows.map(r=>shortDay(r.d));
+  const line=(label,data,c)=>({label,data,borderColor:c,backgroundColor:c,borderWidth:2,pointRadius:rows.length>60?0:2,pointHoverRadius:5,tension:0.15,pointBackgroundColor:c,pointBorderColor:cssVar('--surface'),pointBorderWidth:2});
+  const base=()=>({responsive:true,maintainAspectRatio:false,animation:false,interaction:{mode:'index',intersect:false},
+    plugins:{legend:{labels:{color:cssVar('--ink-2'),usePointStyle:true,pointStyle:'circle',boxWidth:8}}},
+    scales:{x:{grid:{display:false},border:{color:cssVar('--baseline')},ticks:{color:cssVar('--muted'),maxTicksLimit:14}},y:{beginAtZero:true,grid:{color:cssVar('--grid')},border:{display:false},ticks:{color:cssVar('--muted'),callback:v=>fmt.format(v)}}}});
+  mk('cTrend',{type:'line',data:{labels,datasets:[line('방문',rows.map(r=>r.visits),cssVar('--s1')),line('세션',rows.map(r=>r.sessions),cssVar('--s2')),line('순 사용자(일별)',rows.map(r=>r.users),cssVar('--s3')),line('가입',rows.map(r=>r.signups),cssVar('--s5'))]},options:base()});
+  table('tTrend',['일자','방문','세션','순사용자(일)','가입','검색'],rows.map(r=>[r.d,r.visits,r.sessions,r.users,r.signups,r.searches]));
+
+  const dOpt=base(); dOpt.scales.x.stacked=true; dOpt.scales.y.stacked=true;
+  mk('cDevice',{type:'bar',data:{labels,datasets:[
+    {label:'데스크톱',data:rows.map(r=>r.desktop),backgroundColor:cssVar('--s1')},
+    {label:'모바일',data:rows.map(r=>r.mobile),backgroundColor:cssVar('--s2')},
+    {label:'태블릿',data:rows.map(r=>r.tablet),backgroundColor:cssVar('--s3')},
+  ].map(ds=>({...ds,borderColor:cssVar('--surface'),borderWidth:1,borderRadius:2,maxBarThickness:34}))},options:dOpt});
+
+  // 기능 영역별 (전체 기간)
+  const fNames={ASSESSMENT:'역량검사',ENTRY:'진입/로그인',JOB_EXPLORE:'공고 탐색',MATCHING:'매칭',CAREER_MEMORY:'커리어 메모리',CONTENT:'콘텐츠',APPLY:'지원',PROFILE:'프로필',MYPAGE:'마이페이지',INTERVIEW:'면접',CAREER_BOARD:'커리어 보드',ETC:'기타'};
+  const feats=(HOME.features||[]).slice(0,12);
+  const hOpt=base(); hOpt.indexAxis='y'; hOpt.plugins.legend={display:false}; hOpt.interaction={mode:'nearest',intersect:false};
+  hOpt.scales={x:{beginAtZero:true,grid:{color:cssVar('--grid')},border:{display:false},ticks:{color:cssVar('--muted'),callback:v=>fmt.format(v)}},y:{grid:{display:false},border:{color:cssVar('--baseline')},ticks:{color:cssVar('--ink-2'),autoSkip:false}}};
+  mk('cFeature',{type:'bar',data:{labels:feats.map(f=>fNames[f._id]||f._id),datasets:[{data:feats.map(f=>f.visits),backgroundColor:cssVar('--s1'),borderRadius:4,maxBarThickness:16}]},options:hOpt});
+}
+function table(elId,headers,rows){ const th=headers.map(h=>`<th>${h}</th>`).join(''); const tr=rows.map(r=>`<tr>${r.map((c,i)=>`<td>${i===0?c:fmt.format(c??0)}</td>`).join('')}</tr>`).join(''); $(elId).innerHTML=`<table><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table>`; }
+
+// ===== 네트워크 그래프 (주요 페이지 그룹, 커리어메모리 중심) =====
+const NET_GROUPS=['홈','로그인/가입','공고 탐색','역량검사','매칭','커리어메모리','마이페이지','콘텐츠'];
+let edgeMode='width';
+function renderNet(){
+  const slot=Object.fromEntries(NET_GROUPS.map((g,i)=>[g,`--s${i+1}`]));
+  const nodeV=Object.fromEntries(FLOWS.nodes.map(n=>[n.name,n.visits]));
+  const names=NET_GROUPS.filter(g=>nodeV[g]>0);
+  const edges=FLOWS.edges.filter(e=>slot[e.from]&&slot[e.to]&&nodeV[e.from]>0&&nodeV[e.to]>0).slice(0,24);
+  const W=940,H=660,CX=W/2,CY=H/2,R=235;
+  const vMax=Math.max(...names.map(g=>nodeV[g])), eMax=Math.max(...edges.map(e=>e.n),1);
+  const pos={},rad={};
+  names.forEach((g,i)=>{ const a=-Math.PI/2+(i*2*Math.PI)/names.length; pos[g]={x:CX+R*Math.cos(a),y:CY+R*Math.sin(a),a}; rad[g]=16+28*Math.sqrt(nodeV[g]/vMax); });
+  const col=(g)=>cssVar(slot[g]); const esc=(s)=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  let eSvg='';
+  edges.forEach(e=>{ const p1=pos[e.from],p2=pos[e.to]; const mx=(p1.x+p2.x)/2,my=(p1.y+p2.y)/2; const dx=p2.x-p1.x,dy=p2.y-p1.y,len=Math.hypot(dx,dy)||1; const nx=-dy/len,ny=dx/len;
+    const cx=mx+(CX-mx)*0.28-nx*18, cy=my+(CY-my)*0.28-ny*18;
+    const sdx=cx-p1.x,sdy=cy-p1.y,sl=Math.hypot(sdx,sdy)||1; const x1=p1.x+(sdx/sl)*rad[e.from],y1=p1.y+(sdy/sl)*rad[e.from];
+    const edx=p2.x-cx,edy=p2.y-cy,el=Math.hypot(edx,edy)||1; const ux=edx/el,uy=edy/el;
+    const w = edgeMode==='width' ? (1.5+10*Math.sqrt(e.n/eMax)) : 2.5;
+    const aw=Math.max(4,w*1.4),al=Math.max(8,w*2.2); const gap=rad[e.to]+al+2; const x2=p2.x-(edx/el)*gap,y2=p2.y-(edy/el)*gap;
+    const ax=x2+ux*al,ay=y2+uy*al; const arrow=`${ax},${ay} ${x2- -uy*aw},${y2-ux*aw} ${x2+ -uy*aw},${y2+ux*aw}`;
+    const c=col(e.from); const t=0.35,mt=1-t; const lx=mt*mt*x1+2*mt*t*cx+t*t*x2, ly=mt*mt*y1+2*mt*t*cy+t*t*y2;
+    const valTxt = edgeMode==='value' ? `<text x="${lx}" y="${ly+3.5}" text-anchor="middle" font-size="11" font-weight="600" fill="${cssVar('--ink-2')}" stroke="${cssVar('--surface')}" stroke-width="3" style="paint-order:stroke" pointer-events="none">${fmt.format(e.n)}</text>` : '';
+    eSvg+=`<g class="fe" data-from="${esc(e.from)}" data-to="${esc(e.to)}"><title>${esc(e.from)} → ${esc(e.to)} · ${fmt.format(e.n)}회</title>
+      <path d="M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}" fill="none" stroke="${c}" stroke-width="${w}" stroke-opacity="0.45" stroke-linecap="round"/>
+      <polygon points="${arrow}" fill="${c}" fill-opacity="0.6"/>${valTxt}</g>`; });
+  let nSvg='';
+  names.forEach(g=>{ const p=pos[g],r=rad[g],c=col(g); const out=r+12; const lx=p.x+Math.cos(p.a)*out,ly=p.y+Math.sin(p.a)*out;
+    const anchor=Math.abs(Math.cos(p.a))<0.35?'middle':(Math.cos(p.a)>0?'start':'end'); const va=Math.sin(p.a)<-0.35?-6:(Math.sin(p.a)>0.35?14:4);
+    const hi = g==='커리어메모리';
+    nSvg+=`<g class="fn" data-node="${esc(g)}" tabindex="0"><title>${esc(g)} · 방문 ${fmt.format(nodeV[g])}회</title>
+      <circle cx="${p.x}" cy="${p.y}" r="${r}" fill="${c}" fill-opacity="0.9" stroke="${hi?cssVar('--ink'):cssVar('--surface')}" stroke-width="${hi?3:2}"/>
+      <text x="${lx}" y="${ly+va}" text-anchor="${anchor}" font-size="13" font-weight="${hi?800:600}" fill="${cssVar('--ink')}">${esc(g)}</text>
+      <text x="${lx}" y="${ly+va+15}" text-anchor="${anchor}" font-size="11" fill="${cssVar('--muted')}">${fmt.format(nodeV[g])}회</text></g>`; });
+  $('net').innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block" role="img" aria-label="주요 페이지 이동 경로">${eSvg}${nSvg}</svg>`;
+  $('netlegend').innerHTML = names.map(g=>`<span><span class="dot" style="background:${col(g)}"></span>${g}</span>`).join('');
+  const svg=$('net').querySelector('svg'); const all=[...svg.querySelectorAll('.fe')];
+  const focus=(g)=>all.forEach(el=>el.style.opacity=(!g||el.dataset.from===g||el.dataset.to===g)?'1':'0.07');
+  svg.querySelectorAll('.fn').forEach(el=>{ el.addEventListener('mouseenter',()=>focus(el.dataset.node)); el.addEventListener('mouseleave',()=>focus(null)); el.addEventListener('focus',()=>focus(el.dataset.node)); el.addEventListener('blur',()=>focus(null)); });
+  table('tNet',['이동 경로','이동 수'],FLOWS.edges.slice(0,40).map(e=>[`${e.from} → ${e.to}`,e.n]));
+}
+
+// init
+$('meta').textContent = `${minDay} ~ ${maxDay} 데이터 보유`;
+$('latestInfo').textContent = `집계 ${new Date(HOME.generatedAt).toLocaleString('ko-KR')}`;
+$('nDays').value = 1; $('nDays').max = allDays.length;
+$('fromDate').min=minDay; $('fromDate').max=maxDay; $('toDate').min=minDay; $('toDate').max=maxDay;
+$('fromDate').value=maxDay; $('toDate').value=maxDay;
+$('nDays').addEventListener('input',()=>{ let v=Math.max(1,Math.min(365,+$('nDays').value||1)); state.mode='preset'; state.nDays=v; renderChips(); render(); });
+$('fromDate').addEventListener('change',applyCustom); $('toDate').addEventListener('change',applyCustom);
+function applyCustom(){ const f=$('fromDate').value,t=$('toDate').value; if(!f||!t) return; state.mode='custom'; state.from=f<=t?f:t; state.to=f<=t?t:f; renderChips(); render(); }
+$('edgeMode').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{ edgeMode=b.dataset.m; $('edgeMode').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b)); renderNet(); }));
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{ render(); renderNet(); });
+
+renderChips(); render(); renderNet(); bindTips();
+</script>

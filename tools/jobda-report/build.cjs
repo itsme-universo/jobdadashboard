@@ -182,6 +182,69 @@ async function buildCampaigns(col, since) {
   return { generatedAt: new Date().toISOString(), since, campaigns };
 }
 
+// ---- 페이지 이동 경로 (세션 내 연속 VISIT) — 커리어메모리·로켓 중심 네트워크용
+function routeGroup(r) {
+  if (!r) return '기타';
+  if (r.startsWith('ACCA') || r.startsWith('ACC_') || r.startsWith('PHS')) return '역량검사';
+  if (r.startsWith('POSITION') || r.startsWith('JOBS') || r.startsWith('COMPANY') || r === 'CALENDAR') return '공고 탐색';
+  if (r.startsWith('MATCH')) return '매칭';
+  if (r.startsWith('CAREER_MEMORY')) return '커리어메모리';
+  if (r.startsWith('MYPAGE') || r === 'PROFILE') return '마이페이지';
+  if (r === 'HOME') return '홈';
+  if (r.startsWith('JOIN') || r.startsWith('OAUTH2') || r.includes('LOGIN')) return '로그인/가입';
+  if (r.startsWith('INFO') || r.startsWith('CONTENT')) return '콘텐츠';
+  if (r.startsWith('INTERVIEW')) return '면접';
+  return '기타';
+}
+async function buildFlows(db) {
+  const trackingLog = db.collection('tracking_log'), dailyStat = db.collection('tracking_daily_stat');
+  const agg = (col, p) => col.aggregate(p, { allowDiskUse: true }).toArray();
+  const PAIR = [
+    { $project: { pairs: { $map: { input: { $range: [0, { $max: [0, { $subtract: [{ $size: '$routes' }, 1] }] }] }, as: 'i', in: { f: { $arrayElemAt: ['$routes', '$$i'] }, t: { $arrayElemAt: ['$routes', { $add: ['$$i', 1] }] } } } } } },
+    { $unwind: '$pairs' }, { $match: { $expr: { $ne: ['$pairs.f', '$pairs.t'] } } },
+    { $group: { _id: { f: '$pairs.f', t: '$pairs.t' }, n: { $sum: 1 } } },
+  ];
+  const [fr, routeVisits] = await Promise.all([
+    agg(trackingLog, [{ $match: { eventType: 'VISIT' } }, { $sort: { sessionId: 1, timestamp: 1 } }, { $group: { _id: '$sessionId', routes: { $push: '$routeName' } } },
+      { $facet: {
+        pairs: [...PAIR, { $sort: { n: -1 } }, { $limit: 1200 }],
+        cm: [...PAIR, { $match: { $or: [{ '_id.f': { $regex: '^CAREER_MEMORY' } }, { '_id.t': { $regex: '^CAREER_MEMORY' } }] } }, { $sort: { n: -1 } }, { $limit: 300 }],
+        exits: [{ $project: { last: { $arrayElemAt: ['$routes', -1] } } }, { $group: { _id: '$last', n: { $sum: 1 } } }, { $sort: { n: -1 } }],
+        routeSessions: [{ $unwind: '$routes' }, { $group: { _id: { s: '$_id', r: '$routes' } } }, { $group: { _id: '$_id.r', sessions: { $sum: 1 } } }],
+      } }]),
+    agg(dailyStat, [{ $match: { eventType: 'VISIT' } }, { $group: { _id: '$routeName', visits: { $sum: '$count' } } }]),
+  ]);
+  const rawPairs = fr[0].pairs, cmPairs = fr[0].cm, exitsRaw = fr[0].exits;
+  const routeSessions = new Map(fr[0].routeSessions.map((r) => [r._id, r.sessions]));
+  const isCm = (r) => typeof r === 'string' && r.startsWith('CAREER_MEMORY');
+  const inflow = new Map(), outflow = new Map();
+  for (const p of cmPairs) { const { f, t } = p._id; if (isCm(f) && isCm(t)) continue; if (isCm(t)) inflow.set(f, (inflow.get(f) || 0) + p.n); else if (isCm(f)) outflow.set(t, (outflow.get(t) || 0) + p.n); }
+  const toSorted = (m) => [...m.entries()].map(([name, n]) => ({ name, n })).sort((a, b) => b.n - a.n);
+  const edgeMap = new Map();
+  for (const p of rawPairs) { const f = routeGroup(p._id.f), t = routeGroup(p._id.t); if (f === t) continue; const k = `${f}→${t}`; edgeMap.set(k, (edgeMap.get(k) || 0) + p.n); }
+  const edges = [...edgeMap.entries()].map(([k, n]) => { const [from, to] = k.split('→'); return { from, to, n }; }).sort((a, b) => b.n - a.n);
+  const nodeMap = new Map();
+  for (const r of routeVisits) { const g = routeGroup(r._id); nodeMap.set(g, (nodeMap.get(g) || 0) + r.visits); }
+  const nodes = [...nodeMap.entries()].map(([name, visits]) => ({ name, visits }));
+  const rvMap = new Map(routeVisits.map((r) => [r._id, r.visits]));
+  const topPages = [...rvMap.entries()].sort((a, b) => b[1] - a[1]).slice(0, 20).map(([name, visits]) => ({ name, visits }));
+  const topSet = new Set(topPages.map((p) => p.name));
+  const routeEdges = rawPairs.filter((p) => topSet.has(p._id.f) && topSet.has(p._id.t)).map((p) => ({ from: p._id.f, to: p._id.t, n: p.n }));
+  const exits = exitsRaw.filter((r) => r._id).map((r) => ({ name: r._id, exits: r.n, sessions: routeSessions.get(r._id) || r.n, exitRate: routeSessions.get(r._id) ? +(100 * r.n / routeSessions.get(r._id)).toFixed(1) : null }));
+  return { generatedAt: new Date().toISOString(), nodes, edges, cmFlows: { inflow: toSorted(inflow), outflow: toSorted(outflow) }, topPages, routeEdges, exits };
+}
+// 구간별 distinct 순 사용자 (프리셋 lookback 창) — 최신일 기준
+async function computeWindowUsers(db, latest) {
+  const userDaily = db.collection('tracking_user_daily_stat');
+  const WINDOWS = [1, 3, 7, 14, 30, 60, 90, 120, 180, 270, 365];
+  const end = new Date(latest + 'T23:59:59.999+09:00');
+  const facet = {};
+  for (const w of WINDOWS) { const s = new Date(end.getTime() - (w * 864e5) + 1); facet['w' + w] = [{ $match: { date: { $gte: s, $lte: end } } }, { $group: { _id: '$userSn' } }, { $count: 'n' }]; }
+  const [r] = await userDaily.aggregate([{ $facet: facet }], { allowDiskUse: true }).toArray();
+  const out = {}; for (const w of WINDOWS) out[w] = r['w' + w]?.[0]?.n || 0;
+  return out;
+}
+
 function fillReport(tpl, chartjs, data, funnel, submits) {
   const out = tpl.replace('__CHARTJS__', () => chartjs).replace('__DATA__', () => noLt(JSON.stringify(data)))
     .replace('__ROCKETFUNNEL__', () => noLt(JSON.stringify(funnel))).replace('__ROCKET__', () => noLt(JSON.stringify(submits)));
@@ -205,11 +268,12 @@ function fillReport(tpl, chartjs, data, funnel, submits) {
 
   const today = kstToday(); const days = daysBetween(START, today);
   const archiveDir = path.join(OUT, 'dailyarchive'); fs.mkdirSync(archiveDir, { recursive: true });
-  const made = [];
+  const made = []; let lastDash = null;
   for (const D of days) {
     const untilMs = new Date(D + 'T23:59:59.999+09:00').getTime();
     const [dash, cm] = await Promise.all([buildDashboard(db, D), buildCareerMemory(db, D)]);
     if (!dash.dailyVisits.length) { console.log('skip', D); continue; }
+    lastDash = dash;
     const funnel = funnelUpTo(ev, untilMs, START);
     const rows = submitRows.filter((r) => r.day <= D);
     const submits = { period: `${START} ~ ${D}`, total: rows.reduce((s, r) => s + r.count, 0), note: "개인 식별자 없이 공고 단위 집계. 공고명은 페이지 제목에서 추출. '세션추정'은 목록/캘린더에서 제출되어 같은 세션의 가장 가까운 JD 방문으로 역추적한 값이라 실제와 다를 수 있음.", rows };
@@ -246,6 +310,21 @@ ${latest ? `<a class="latest" href="${WEB}/${latest}/">최신 리포트 (${lates
   fs.writeFileSync(path.join(campDir, 'index.html'), `<!DOCTYPE html>\n<html lang="ko">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<meta name="robots" content="noindex">\n</head>\n<body>\n${ch}\n</body>\n</html>\n`);
   console.log('캠페인 스냅샷 생성 · 캠페인수', camp.campaigns.length);
 
+  // ===== HOME (기본 화면) — 날짜 필터 + 네트워크 그래프
+  const homeTpl = fs.readFileSync(path.join(HERE, 'home.tpl.html'), 'utf8');
+  const flows = await buildFlows(db);
+  const latestDay = lastDash.dailyVisits[lastDash.dailyVisits.length - 1]._id;
+  const windowUsers = await computeWindowUsers(db, latestDay);
+  const byId = (arr, k) => Object.fromEntries(arr.map((r) => [r._id, r[k]]));
+  const uMap = byId(lastDash.dailyUsers, 'users'), sMap = byId(lastDash.dailySessions, 'sessions'), qMap = byId(lastDash.dailySearches, 'searches');
+  const signMap = {}; for (const r of lastDash.authDaily) if (r._id.kind === 'signup') signMap[r._id.d] = (signMap[r._id.d] || 0) + r.n;
+  const fullDaily = lastDash.dailyVisits.map((r) => ({ d: r._id, visits: r.visits, users: uMap[r._id] || 0, sessions: sMap[r._id] || 0, searches: qMap[r._id] || 0, signups: signMap[r._id] || 0, desktop: r.desktop || 0, mobile: r.mobile || 0, tablet: r.tablet || 0 }));
+  const HOME = { generatedAt: new Date().toISOString(), latest: latestDay, fullDaily, windowUsers, features: lastDash.features, topRoutes: lastDash.topRoutes, topKeywords: lastDash.topKeywords };
+  const homeOut = homeTpl.replace('__CHARTJS__', () => chartjs).replace('__HOME__', () => noLt(JSON.stringify(HOME))).replace('__FLOWS__', () => noLt(JSON.stringify(flows)));
+  const homeDoc = `<!DOCTYPE html>\n<html lang="ko">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<meta name="robots" content="noindex">\n</head>\n<body>\n${homeOut}\n</body>\n</html>\n`;
+  fs.writeFileSync(path.join(REPO, 'index.html'), homeDoc); // 사이트 루트 = HOME
+  console.log('HOME 생성 · latest', latestDay, '· 구간사용자', JSON.stringify(windowUsers));
+
   await client.close();
-  console.log(`\n완료: 아카이브 ${made.length}일치 + 캠페인. today=${today}`);
+  console.log(`\n완료: HOME + 아카이브 ${made.length}일치 + 캠페인. today=${today}`);
 })().catch((e) => { console.error('실패:', e.message); process.exit(1); });
