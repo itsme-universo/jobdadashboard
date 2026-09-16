@@ -1,0 +1,52 @@
+name: JOBDA 행동 리포트 일별 갱신
+
+# 매일 KST 08:00 (UTC 23:00) 자동 실행 + 수동 실행 가능
+on:
+  schedule:
+    - cron: '0 23 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  build-and-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install deps
+        working-directory: tools/jobda-report
+        run: npm install --no-audit --no-fund
+
+      - name: Build reports
+        working-directory: tools/jobda-report
+        env:
+          MONGODB_PASSWORD: ${{ secrets.MONGODB_PASSWORD }}
+        run: node build.cjs
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: auto/jobda-daily-report
+          base: main
+          commit-message: "chore(strategy): 행동 리포트/캠페인 자동 일별 갱신"
+          title: "[자동] JOBDA 행동 리포트 일별 갱신"
+          body: |
+            매일 KST 08시 자동 생성. `strategy/jobdabehavior/` 아래 일별 아카이브 + 마케팅 캠페인 스냅샷을 최신 데이터로 갱신합니다.
+
+            - 집계 전용 · 개인 식별정보 없음
+            - 로켓지원 퍼널 monotonic · 최종 제출 = 크레딧 차감 실제값
+            - 생성기: `tools/jobda-report/build.cjs`
+
+            🤖 Generated with [Claude Code](https://claude.com/claude-code)
+          add-paths: |
+            strategy/jobdabehavior/**
+          delete-branch: true

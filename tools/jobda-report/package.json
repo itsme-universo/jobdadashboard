@@ -1,0 +1,11 @@
+{
+  "name": "jobda-report-builder",
+  "private": true,
+  "description": "JOBDA 행동 리포트/캠페인 정적 페이지 빌더 (MongoDB 직접 접속)",
+  "scripts": {
+    "build": "node build.cjs"
+  },
+  "dependencies": {
+    "mongodb": "^6.10.0"
+  }
+}

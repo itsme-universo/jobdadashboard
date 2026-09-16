@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>마케팅 캠페인 추적</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+  .camp-block { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:20px 22px; margin-bottom:18px; }
+  .camp-title { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:2px; }
+  .camp-title h2 { font-size:17px; font-weight:700; margin:0; }
+  .camp-title .ch { font-size:12px; padding:2px 9px; border-radius:999px; background:color-mix(in srgb,var(--s1) 15%,transparent); color:var(--s1); font-weight:600; }
+  .camp-sub { color:var(--muted); font-size:12px; margin:0 0 14px; }
+  .camp-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media(max-width:820px){ .camp-grid{ grid-template-columns:1fr; } }
+  .funnel-h { display:flex; flex-direction:column; gap:7px; }
+  .fstep { display:grid; grid-template-columns:120px 1fr auto; gap:10px; align-items:center; }
+  .fstep .fn { font-size:13px; color:var(--ink-2); text-align:right; }
+  .fstep .fbar { height:20px; border-radius:4px; background:var(--s1); min-width:2px; }
+  .fstep .fv { font-size:12px; color:var(--ink-2); white-space:nowrap; }
+  .fstep .fv b { color:var(--ink); font-size:13px; }
+  .dispatch-line { font-size:13px; color:var(--ink-2); margin:0 0 14px; padding:9px 13px; background:var(--page); border:1px solid var(--grid); border-radius:8px; }
+  .dispatch-line b { color:var(--ink); }
+  .schools-box { margin-top:12px; padding:12px 14px; background:var(--page); border:1px solid var(--grid); border-radius:10px; }
+  .schools-head { font-size:13px; font-weight:600; color:var(--ink-2); margin-bottom:8px; }
+  .schools-head .cap { font-size:11px; font-weight:400; color:var(--muted); margin-left:6px; }
+  .schools-chips { display:flex; flex-wrap:wrap; gap:6px; }
+  .school-chip { font-size:12px; padding:3px 10px; border-radius:999px; background:color-mix(in srgb,var(--s1) 12%,transparent); color:var(--ink-2); }
+  .school-chip b { color:var(--s1); }
+  .schools-note { font-size:11px; color:var(--muted); margin-top:8px; line-height:1.5; }
+  .warn-note { font-size:12px; color:var(--down); margin-top:10px; padding:8px 12px; background:color-mix(in srgb,var(--down) 8%,transparent); border-radius:8px; }
+  .good-note { font-size:12px; color:var(--up); margin-top:10px; padding:8px 12px; background:color-mix(in srgb,var(--up) 8%,transparent); border-radius:8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>마케팅 캠페인 추적</h1>
+    <span class="sub" id="range"></span>
+    <div class="toolbar">
+      <span class="sub" id="updated"></span>
+      <button class="refresh" id="refreshBtn">새로고침</button>
+    </div>
+  </header>
+  <p class="privacy">9/9 이후 누적 · 원본 로그(tracking_log) 기준. UTM 캠페인으로 유입한 세션을 추적해 커리어메모리·로켓지원·가입 전환까지 봅니다. 전환은 <b>유입한 그 세션 내</b> 행동 기준(same-session). 개인 식별정보는 조회하지 않습니다.</p>
+  <nav class="tabs">
+    <a href="/">전체 개요</a>
+    <a href="/career-memory.html">커리어메모리 · 로켓지원</a>
+    <a href="/talent.html">지원자 프로필</a>
+    <a href="/inflow.html">실시간 유입</a>
+    <a href="/campaigns.html" class="active">마케팅 캠페인</a>
+  </nav>
+
+  <div id="content" hidden></div>
+  <div class="status" id="status">불러오는 중…</div>
+  <footer>누적 마케팅 캠페인 추적 · 5분 캐시 · 데이터 출처: jobda.tracking_log (원본 이벤트, 9/9~현재)</footer>
+</div>
+
+<script src="/vendor/chart.umd.js"></script>
+<script src="/common.js"></script>
+<script>
+const ROUTE_KO = {
+  CAREER_MEMORY_SLUG:'커리어메모리', INFO_SN:'콘텐츠 상세', INFO:'콘텐츠', HOME:'홈', ACCA_TEST:'역검 응시',
+  ACCA_RESULTS:'역검 결과', ACCA_RESULT_SAVE:'역검 결과저장', MYPAGE:'마이페이지', MYPAGE_APPLY:'마이 지원현황',
+  POSITION:'포지션 목록', POSITION_SN_JD:'포지션 상세', MATCH:'매칭', JOBS:'공고', MATCH_INTRODUCE:'매칭 소개',
+};
+const rk = (r) => ROUTE_KO[r] || r;
+// 전환 퍼널 단계 정의 (분모 = 유입 세션)
+const STEPS = [
+  ['sessions','유입 세션', (c)=>c.sessions],
+  ['login','로그인', (c)=>c.conv.login],
+  ['cm','커리어메모리 방문', (c)=>c.conv.cm],
+  ['cmSave','기록 남김', (c)=>c.conv.cmSave],
+  ['acca','역검 진입', (c)=>c.conv.acca],
+  ['rocketStart','로켓 시작', (c)=>c.conv.rocketStart],
+  ['rocketSubmit','로켓 제출', (c)=>c.conv.rocketSubmit],
+];
+
+function schoolsBlock(c) {
+  if (!c.schools || !c.schools.length) return '';
+  const cov = c.referrerCoverage || { withRef: 0, noRef: 0 };
+  const total = cov.withRef + cov.noRef;
+  const items = c.schools.map(s => `<span class="school-chip">${s.name} <b>${s.n}</b></span>`).join('');
+  return `<div class="schools-box">
+    <div class="schools-head">확인된 유입 학교 <span class="cap">referrer 기준 · 일부만 식별</span></div>
+    <div class="schools-chips">${items}</div>
+    <div class="schools-note">전체 유입 ${fmt.format(total)}건 중 referrer 있는 ${fmt.format(cov.withRef)}건에서만 식별 (나머지 ${fmt.format(cov.noRef)}건은 이메일·리다이렉트가 referrer 제거로 학교 미상). 학교별 완전 추적은 발송 링크에 학교별 utm_content 필요.</div>
+  </div>`;
+}
+
+function render(d) {
+  destroyCharts();
+  $('content').innerHTML = '';
+  $('range').textContent = `${d.since} ~ 현재 (누적)`;
+  $('updated').textContent = '집계 ' + new Date(d.generatedAt).toLocaleString('ko-KR');
+  const s1=cssVar('--s1'), s2=cssVar('--s2');
+
+  d.campaigns.forEach((c, i) => {
+    const rate = (n) => c.sessions ? Math.round(100*n/c.sessions) : 0;
+    const block = document.createElement('div');
+    block.className = 'camp-block';
+    const engageRate = rate(c.conv.cmSave);
+    const landing = c.topLanding.map(l=>`${rk(l.routeName)} ${fmt.format(l.n)}`).join(' · ');
+    const isRocketCm = /rocket|career|메모리/i.test(c.name);
+    const landOk = c.topLanding[0]?.routeName === 'CAREER_MEMORY_SLUG';
+    let note = '';
+    if (isRocketCm && !landOk) note = `<div class="warn-note">⚠ 커리어메모리/로켓 캠페인인데 랜딩이 <b>${rk(c.topLanding[0]?.routeName)}</b> — 커리어메모리 방문 ${rate(c.conv.cm)}%에 그침. 랜딩 URL을 커리어메모리로 바꾸면 전환 개선 여지가 큽니다.</div>`;
+    else if (landOk && engageRate >= 20) note = `<div class="good-note">✓ 랜딩이 커리어메모리로 정확히 연결됨 · 기록 작성 전환 ${engageRate}%로 양호.</div>`;
+
+    // 발송 규모 & CTR(발송 대비 유입)
+    const dsp = c.dispatch;
+    const dispatchLine = dsp ? `<p class="dispatch-line">📤 <b>${dsp.label}</b> · ${dsp.detail}${dsp.sent ? ` · 발송 대비 유입 <b>${(100*c.sessions/dsp.sent).toFixed(2)}%</b> (세션 ${fmt.format(c.sessions)}/${fmt.format(dsp.sent)})` : ''}</p>` : '';
+    const ctrTile = dsp && dsp.sent
+      ? tile('발송 대비 유입', (100*c.sessions/dsp.sent).toFixed(2), null, `${fmt.format(c.sessions)} / ${fmt.format(dsp.sent)}명`, '%')
+      : tile('유입 방문', c.visits, null, `${c.daily.length}일간`);
+
+    block.innerHTML = `
+      <div class="camp-title"><h2>${c.name}</h2><span class="ch">${c.channel}</span></div>
+      <p class="camp-sub">${c.since || d.since}~ 누적 · 랜딩: ${landing}</p>
+      ${dispatchLine}
+      <div class="kpis" style="margin-bottom:16px">
+        ${ctrTile}
+        ${tile('유입 세션', c.sessions, null, `순 사용자 ${fmt.format(c.users)}명`)}
+        ${tile('기록 작성 전환', rate(c.conv.cmSave), null, `${fmt.format(c.conv.cmSave)}세션`, '%')}
+        ${tile('로켓 시작 / 제출', `${c.conv.rocketStart} / ${c.conv.rocketSubmit}`, null, '세션')}
+      </div>
+      <div class="camp-grid">
+        <div>
+          <div class="camp-sub" style="font-weight:600;color:var(--ink-2)">일별 유입 추이</div>
+          <div class="plot" style="height:240px"><canvas id="cDaily${i}"></canvas></div>
+        </div>
+        <div>
+          <div class="camp-sub" style="font-weight:600;color:var(--ink-2)">전환 퍼널 (유입 세션 대비)</div>
+          <div class="funnel-h" id="funnel${i}"></div>
+        </div>
+      </div>
+      ${note}
+      ${schoolsBlock(c)}
+      <details class="tbl"><summary>표 보기</summary><div class="scroll" id="tCamp${i}"></div></details>
+    `;
+    $('content').appendChild(block);
+
+    // 일별 추이 차트
+    makeChart(`cDaily${i}`, { type:'bar', data:{ labels:c.daily.map(x=>x.day.slice(5)), datasets:[
+      { label:'방문', data:c.daily.map(x=>x.visits), backgroundColor:s1, borderRadius:3, maxBarThickness:40 },
+      { label:'순 사용자', data:c.daily.map(x=>x.users), backgroundColor:s2, borderRadius:3, maxBarThickness:40 },
+    ]}, options:(()=>{ const o=baseOptions(); return o; })() });
+
+    // 전환 퍼널 (가로 바)
+    const maxV = c.sessions || 1;
+    $(`funnel${i}`).innerHTML = STEPS.map(([k,label,fn]) => {
+      const v = fn(c); const w = Math.max(v/maxV*100, 0.5); const p = rate(v);
+      return `<div class="fstep"><div class="fn">${label}</div>
+        <div class="fbar" style="width:${w}%"></div>
+        <div class="fv"><b>${fmt.format(v)}</b> · ${p}%</div></div>`;
+    }).join('');
+
+    table(`tCamp${i}`, ['일자','방문','순 사용자'], c.daily.map(x=>[x.day, x.visits, x.users]));
+  });
+}
+
+let last=null;
+async function load(refresh) {
+  $('status').hidden=false; $('status').textContent='불러오는 중… (누적 집계는 수십 초 걸릴 수 있습니다)';
+  try {
+    const res = await fetch('/api/campaigns'+(refresh?'?refresh=1':''));
+    if(!res.ok) throw new Error((await res.json()).error||res.statusText);
+    last = await res.json(); render(last);
+    $('content').hidden=false; $('status').hidden=true;
+  } catch(e){ $('status').textContent='불러오기 실패: '+e.message; }
+}
+$('refreshBtn').addEventListener('click',()=>load(true));
+watchTheme(()=>{ if(last) render(last); });
+load(false);
+</script>
+</body>
+</html>
