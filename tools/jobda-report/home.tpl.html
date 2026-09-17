@@ -248,13 +248,13 @@
       <details class="tbl"><summary>표 보기</summary><div class="scroll" id="tDevice"></div></details>
     </div>
     <div class="card">
-      <h3>로그인 · 회원가입 완료</h3>
+      <h3>로그인 · 회원가입 완료 <span class="info" tabindex="0" title="[①] 로그인·가입 등 ‘완료’ 이벤트는 브라우저가 완료 직후 보내는 추적 신호로 집계됩니다. 완료 직후 화면 이동·네이티브 앱 가입·광고차단 등으로 신호가 일부 유실돼, 서버 실측보다 약 5~10% 적게 잡힙니다. 추세·비교 분석엔 문제없지만 절대 수치(KPI)로 쓸 땐 실측 대비 과소임을 감안하세요.">ⓘ</span></h3>
       <p class="desc">일별 ACCOUNT_LOGIN / SIGN_UP COMPLETE 이벤트</p>
       <div class="plot" style="height:250px"><canvas id="cAuth"></canvas></div>
       <details class="tbl"><summary>표 보기</summary><div class="scroll" id="tAuth"></div></details>
     </div>
     <div class="card">
-      <h3>기능 영역별 방문 <span class="tip" data-tip="feature 태그별 방문 합계. 역량검사=/acca·/phs · 진입/로그인=홈·/login·/join·/oauth2 · 공고 탐색=/position·/jobs·/company · 매칭=/match · 커리어 메모리=/career-memory · 콘텐츠=/info · 마이페이지=/mypage · 지원=지원서 작성/제출 · 프로필=프로필 · 면접=면접 연습">ⓘ</span></h3>
+      <h3>기능 영역별 방문 <span class="info" tabindex="0" title="feature 태그별 방문 합계. 역량검사=/acca·/phs · 진입/로그인=홈·/login·/join·/oauth2 · 공고 탐색=/position·/jobs·/company · 매칭=/match · 커리어 메모리=/career-memory · 콘텐츠=/info · 마이페이지=/mypage · 지원=지원서 작성/제출 · 프로필=프로필 · 면접=면접 연습 · [④] 이 수치는 해당 페이지 ‘진입(방문)’ 기준입니다. 역검 ‘응시 완료’나 커리어메모리 ‘작성 완료’와는 다르니, 완료율로 해석하지 마세요.">ⓘ</span></h3>
       <p class="desc">전체 기간 합계 (feature 태그 기준)</p>
       <div class="plot" style="height:310px"><canvas id="cFeature"></canvas></div>
       <details class="tbl"><summary>표 보기</summary><div class="scroll" id="tFeature"></div></details>
@@ -595,9 +595,9 @@ function render() {
   const dateLabel = shortDay(days[idx]);
   const at = (arr, i) => (i >= 0 ? arr[i] : null);
   $('kpis').innerHTML =
-    tile('페이지 방문' + info('페이지가 열린 총 횟수(페이지뷰). 한 사람이 여러 번 열면 그만큼 늘어남.'), at(visits, idx), at(visits, prevIdx), dateLabel) +
+    tile('페이지 방문' + info('페이지가 열린 총 횟수(페이지뷰). 한 사람이 여러 번 열면 그만큼 늘어남. [①] 브라우저가 보내는 추적 신호로 집계돼 서버 실측보다 약 5~10% 적게 잡힙니다(완료 직후 화면 이동·앱·광고차단 등으로 신호 유실). [③] 반대로 SPA 화면 전환이나 일부 봇 때문에 다소 부풀 수도 있습니다.'), at(visits, idx), at(visits, prevIdx), dateLabel) +
     tile('순 사용자' + info('중복 제거한 사람 수. 로그인=userSn, 비로그인=세션 기준. 방문·세션보다 항상 작음.'), at(users, idx), at(users, prevIdx), dateLabel) +
-    tile('세션' + info('접속~이탈까지 한 묶음(한 번의 방문). 한 사람이 여러 번 접속하면 세션도 여러 개.'), at(sessions, idx), at(sessions, prevIdx), dateLabel) +
+    tile('세션' + info('접속~이탈까지 한 묶음(한 번의 방문). [②] 30분 이상 활동이 없으면 새 세션으로 끊깁니다. 한 사람이 하루에 여러 번 오면 세션도 여러 개라, “방문자 수”가 아니라 “방문 묶음 수”입니다.'), at(sessions, idx), at(sessions, prevIdx), dateLabel) +
     tile('검색' + info('검색을 실행한 총 횟수.'), at(searches, idx), at(searches, prevIdx), dateLabel);
 
   makeChart('cTrend', { type: 'line',
