@@ -202,7 +202,7 @@
     </div>
     <div class="card">
       <h3>인기 페이지 Top 10</h3>
-      <p class="desc">기간 방문 수 기준 (routeName)</p>
+      <p class="desc">기간 방문 수가 많은 페이지 순</p>
       <div class="plot" style="height:310px"><canvas id="cRoutes"></canvas></div>
       <details class="tbl"><summary>표 보기</summary><div class="scroll" id="tRoutes"></div></details>
     </div>
@@ -544,8 +544,27 @@ function render() {
     CAREER_MEMORY: '커리어 메모리', CONTENT: '콘텐츠', APPLY: '지원', PROFILE: '프로필',
     MYPAGE: '마이페이지', INTERVIEW: '면접', CAREER_BOARD: '커리어 보드', ETC: '기타',
   };
+  // routeName(내부 코드) → 처음 보는 사람도 이해할 수 있는 한글 이름 (의역)
+  const ROUTE_KO = {
+    ACCA_TEST: '역량검사 응시', ACCA_RESULTS: '역량검사 결과', ACCA_TEST_LIST: '역량검사 목록',
+    ACCA_RESULT_SAVE: '역량검사 결과 저장', ACCA_INTRODUCE: '역량검사 소개', ACCA_TUTORIAL_LOGIN: '역량검사 시작(로그인)',
+    ACCA_LOGIN: '역량검사 로그인', ACCA_TERMS: '역량검사 약관 동의', ACCA_SAMPLE_RESULT: '역량검사 샘플 결과',
+    ACCA_RESULT_SN: '역량검사 결과 상세', ACC_TUTORIAL: '역량검사 튜토리얼', ACC_EXPERIENCE_PRACTICE: '역량검사 체험/연습',
+    PHS_TEST: '개발자 역량검사 응시', PHS_PACC_RESULTS: '개발자 역량검사 결과(PACC)', PHS_PST_RESULTS: '개발자 역량검사 결과(PST)',
+    HOME: '홈(메인)', JOIN: '회원가입', LOGIN: '로그인', JOBFLEX_LOGIN: '로그인(잡플렉스)', BUILDER_LOGIN: '이력서 작성 로그인',
+    OAUTH2_CALLBACK_KAKAO: '카카오 로그인 처리', OAUTH2_CALLBACK_GOOGLE: '구글 로그인 처리', UPDATE_ACCOUNT: '계정 정보 수정',
+    POSITION: '채용공고 목록', POSITION_SN_JD: '채용공고 상세', JOBS: '공고 탐색', COMPANY_SN: '기업 상세',
+    SEARCH_RESULT: '검색 결과', CAREER_MEMORY_SLUG: '커리어메모리', INFO_LIST: '콘텐츠 목록', INFO_SN: '콘텐츠 상세',
+    MATCH: '잡다매칭', MATCH_PROFILE: '매칭 프로필', MATCH_TEST: '매칭 역량검사', MATCH_SETTINGS: '매칭 설정',
+    MATCH_STATUS: '매칭 현황', MATCH_INTRODUCE: '매칭 소개',
+    PASS_INTERVIEW: 'AI 면접(PASS)', PASS_INTERVIEW_START: 'AI 면접 시작',
+    MYPAGE_APPLY: '마이페이지·지원 현황', MYPAGE_PROFILE: '마이페이지·프로필', MYPAGE_RESUME: '마이페이지·이력서',
+    MYPAGE_PREMIUM: '마이페이지·프리미엄', MYPAGE_ACCOUNT: '마이페이지·계정', MYPAGE_BOOKMARK: '마이페이지·북마크',
+    NEW_JOBDA_APPLICATION_PREVIEW: '지원서 미리보기',
+  };
+  const rk = (r) => ROUTE_KO[r] || r;
   hbar('cFeature', 'tFeature', d.features.map((r) => ({ name: featureNames[r._id] || r._id, v: r.visits })), 'name', 'v', ['기능', '방문']);
-  hbar('cRoutes', 'tRoutes', d.topRoutes.map((r) => ({ name: r._id, v: r.visits })), 'name', 'v', ['페이지', '방문']);
+  hbar('cRoutes', 'tRoutes', d.topRoutes.map((r) => ({ name: rk(r._id), v: r.visits })), 'name', 'v', ['페이지', '방문']);
   hbar('cKeywords', 'tKeywords', d.topKeywords.map((r) => ({ name: r._id, v: r.n })), 'name', 'v', ['검색어', '검색 수']);
 
   // ===== 2 커리어메모리
