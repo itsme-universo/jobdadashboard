@@ -23,7 +23,7 @@ const ROCKET_STAGES = ['ROCKET_APPLY_STEP','ROCKET_APPLY_START','ROCKET_ATS_ACCO
 const IDENT = { $ifNull: ['$userId', { $concat: ['s:', { $ifNull: ['$sessionId', '?'] }] }] };
 const kstDay = (f) => ({ $dateToString: { format: '%Y-%m-%d', date: f, timezone: KST } });
 const ARCHIVE_START = new Date(START + 'T00:00:00+09:00');
-const bound = (field, until) => until ? [{ $match: { [field]: { $gte: ARCHIVE_START, $lte: new Date(until + 'T23:59:59.999+09:00') } } }] : [];
+const bound = (field, until, sinceDate) => until ? [{ $match: { [field]: { $gte: sinceDate || ARCHIVE_START, $lte: new Date(until + 'T23:59:59.999+09:00') } } }] : [];
 const noLt = (s) => s.replace(/</g, '\\u003c');
 const kstToday = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
 const identJS = (e) => e.userId || ('s:' + (e.sessionId || '?'));
@@ -50,31 +50,33 @@ function parseUtm(sp) {
   return { source: q.utm_source || '(none)', medium: q.utm_medium || '(none)', campaign: q.utm_campaign || '(none)', content: q.utm_content || '' };
 }
 
-async function buildDashboard(db, until) {
+async function buildDashboard(db, until, since) {
+  const sinceDate = since ? new Date(since + 'T00:00:00+09:00') : ARCHIVE_START;
   const dailyStat = db.collection('tracking_daily_stat'), userDaily = db.collection('tracking_user_daily_stat'),
     trackingLog = db.collection('tracking_log'), searchLog = db.collection('search_log');
   const agg = (c, p) => c.aggregate(p, { allowDiskUse: true }).toArray();
-  const sMatch = { $match: { createdDateTime: { $gte: ARCHIVE_START, $lte: new Date(until + 'T23:59:59.999+09:00') } } };
+  const sMatch = { $match: { createdDateTime: { $gte: sinceDate, $lte: new Date(until + 'T23:59:59.999+09:00') } } };
   const kstMonth = { $dateToString: { format: '%Y-%m', date: '$date', timezone: KST } };
   const [dailyVisits, dailyUsers, dailySessions, dailySearches, features, topRoutes, authDaily, topKeywords, monthlyUsers] = await Promise.all([
-    agg(dailyStat, [...bound('date', until), { $match: { eventType: 'VISIT' } }, { $group: { _id: kstDay('$date'), visits: { $sum: '$count' }, desktop: { $sum: '$device.desktop' }, mobile: { $sum: '$device.mobile' }, tablet: { $sum: '$device.tablet' } } }, { $sort: { _id: 1 } }]),
-    agg(userDaily, [...bound('date', until), { $group: { _id: { d: kstDay('$date'), u: '$userSn' } } }, { $group: { _id: '$_id.d', users: { $sum: 1 } } }, { $sort: { _id: 1 } }]),
-    agg(trackingLog, [...bound('timestamp', until), { $group: { _id: { d: kstDay('$timestamp'), s: '$sessionId' } } }, { $group: { _id: '$_id.d', sessions: { $sum: 1 } } }, { $sort: { _id: 1 } }]),
+    agg(dailyStat, [...bound('date', until, sinceDate), { $match: { eventType: 'VISIT' } }, { $group: { _id: kstDay('$date'), visits: { $sum: '$count' }, desktop: { $sum: '$device.desktop' }, mobile: { $sum: '$device.mobile' }, tablet: { $sum: '$device.tablet' } } }, { $sort: { _id: 1 } }]),
+    agg(userDaily, [...bound('date', until, sinceDate), { $group: { _id: { d: kstDay('$date'), u: '$userSn' } } }, { $group: { _id: '$_id.d', users: { $sum: 1 } } }, { $sort: { _id: 1 } }]),
+    agg(trackingLog, [...bound('timestamp', until, sinceDate), { $group: { _id: { d: kstDay('$timestamp'), s: '$sessionId' } } }, { $group: { _id: '$_id.d', sessions: { $sum: 1 } } }, { $sort: { _id: 1 } }]),
     agg(searchLog, [sMatch, { $group: { _id: kstDay('$createdDateTime'), searches: { $sum: 1 } } }, { $sort: { _id: 1 } }]),
-    agg(dailyStat, [...bound('date', until), { $match: { eventType: 'VISIT', feature: { $ne: null } } }, { $group: { _id: '$feature', visits: { $sum: '$count' } } }, { $sort: { visits: -1 } }]),
-    agg(dailyStat, [...bound('date', until), { $match: { eventType: 'VISIT' } }, { $group: { _id: '$routeName', visits: { $sum: '$count' } } }, { $sort: { visits: -1 } }, { $limit: 10 }]),
-    agg(dailyStat, [...bound('date', until), { $match: { eventType: 'COMPLETE', logName: { $regex: '(ACCOUNT_LOGIN_COMPLETE|ACCOUNT_SIGN_UP_COMPLETE)$' } } }, { $group: { _id: { d: kstDay('$date'), kind: { $cond: [{ $regexMatch: { input: '$logName', regex: 'SIGN_UP_COMPLETE$' } }, 'signup', 'login'] } }, n: { $sum: '$count' } } }, { $sort: { '_id.d': 1 } }]),
+    agg(dailyStat, [...bound('date', until, sinceDate), { $match: { eventType: 'VISIT', feature: { $ne: null } } }, { $group: { _id: '$feature', visits: { $sum: '$count' } } }, { $sort: { visits: -1 } }]),
+    agg(dailyStat, [...bound('date', until, sinceDate), { $match: { eventType: 'VISIT' } }, { $group: { _id: '$routeName', visits: { $sum: '$count' } } }, { $sort: { visits: -1 } }, { $limit: 10 }]),
+    agg(dailyStat, [...bound('date', until, sinceDate), { $match: { eventType: 'COMPLETE', logName: { $regex: '(ACCOUNT_LOGIN_COMPLETE|ACCOUNT_SIGN_UP_COMPLETE)$' } } }, { $group: { _id: { d: kstDay('$date'), kind: { $cond: [{ $regexMatch: { input: '$logName', regex: 'SIGN_UP_COMPLETE$' } }, 'signup', 'login'] } }, n: { $sum: '$count' } } }, { $sort: { '_id.d': 1 } }]),
     agg(searchLog, [sMatch, { $match: { keyword: { $type: 'string', $ne: '' } } }, { $group: { _id: { $trim: { input: '$keyword' } }, n: { $sum: 1 } } }, { $match: { _id: { $ne: '' } } }, { $sort: { n: -1 } }, { $limit: 15 }]),
-    agg(userDaily, [...bound('date', until), { $group: { _id: { m: kstMonth, u: '$userSn' } } }, { $group: { _id: '$_id.m', users: { $sum: 1 } } }, { $sort: { _id: 1 } }]),
+    agg(userDaily, [...bound('date', until, sinceDate), { $group: { _id: { m: kstMonth, u: '$userSn' } } }, { $group: { _id: '$_id.m', users: { $sum: 1 } } }, { $sort: { _id: 1 } }]),
   ]);
   return { generatedAt: new Date().toISOString(), dailyVisits, dailyUsers, dailySessions, dailySearches, features, topRoutes, authDaily, topKeywords, monthlyUsers };
 }
 
-async function buildCareerMemory(db, until) {
+async function buildCareerMemory(db, until, since) {
+  const sinceDate = since ? new Date(since + 'T00:00:00+09:00') : ARCHIVE_START;
   const dailyStat = db.collection('tracking_daily_stat'), trackingLog = db.collection('tracking_log');
   const agg = (c, p) => c.aggregate(p, { allowDiskUse: true }).toArray();
   const flag = (cond) => ({ $max: { $cond: [cond, 1, 0] } });
-  const bD = bound('date', until), bT = bound('timestamp', until);
+  const bD = bound('date', until, sinceDate), bT = bound('timestamp', until, sinceDate);
   const [cmDaily, rawReferrers, behavior, cmFunnel, linkage] = await Promise.all([
     agg(dailyStat, [...bD, { $match: { routeName: CM_ROUTE } }, { $group: { _id: kstDay('$date'), visits: { $sum: { $cond: [{ $eq: ['$eventType', 'VISIT'] }, '$count', 0] } }, uniqueUsers: { $sum: { $cond: [{ $eq: ['$eventType', 'VISIT'] }, '$uniqueUsers', 0] } }, noteSaves: { $sum: { $cond: [{ $eq: ['$eventTarget', 'MEMORY_NOTE_SAVE'] }, '$count', 0] } }, fileUploads: { $sum: { $cond: [{ $eq: ['$eventTarget', 'MEMORY_FILE_UPLOAD'] }, '$count', 0] } }, attachUploads: { $sum: { $cond: [{ $eq: ['$eventTarget', 'MEMORY_ATTACHMENT_UPLOAD'] }, '$count', 0] } } } }, { $sort: { _id: 1 } }]),
     agg(trackingLog, [...bT, { $match: { routeName: CM_ROUTE, eventType: 'VISIT' } }, { $group: { _id: { $arrayElemAt: [{ $split: [{ $ifNull: ['$referrer', ''] }, '?'] }, 0] }, n: { $sum: 1 } } }, { $sort: { n: -1 } }, { $limit: 150 }]),
@@ -95,7 +97,7 @@ async function buildCareerMemory(db, until) {
 }
 
 // 로켓 퍼널 (지원건=user×공고 도달여부, monotonic) — until(ms) 이하
-function funnelUpTo(ev, untilMs, since) {
+function funnelUpTo(ev, untilMs, sinceMs, periodLabel) {
   const apps = new Map(), submitByDay = {}, submitApps = new Set();
   const stageOf = (e) => { const t = e.eventTarget;
     if (t === 'ROCKET_APPLY_START') return 'start';
@@ -103,14 +105,14 @@ function funnelUpTo(ev, untilMs, since) {
     if (t === 'ROCKET_AUTOFILL_END') return e.metadata?.result === 'success' ? 'autofill' : null;
     if (t === 'ROCKET_SECTION_REVIEW') return 'review';
     if (t === 'ROCKET_SUBMIT') return 'submit'; return null; };
-  for (const e of ev) { if (e.ts > untilMs) continue; if (!e.sn) continue;
+  for (const e of ev) { if (e.ts > untilMs) continue; if (sinceMs && e.ts < sinceMs) continue; if (!e.sn) continue;
     const key = identJS(e) + '¦' + e.sn; const st = stageOf(e); if (!st) continue;
     if (!apps.has(key)) apps.set(key, new Set()); apps.get(key).add(st);
     if (st === 'submit') { submitApps.add(key); const d = new Date(e.ts + 9 * 3600e3).toISOString().slice(0, 10); (submitByDay[d] ??= new Set()).add(key); } }
   const ORDER = [{ code: 'start', name: '지원 시작' }, { code: 'step:agreement', name: '약관 동의' }, { code: 'step:sector', name: '지원 부문 선택' }, { code: 'step:form', name: '지원서 작성' }, { code: 'review', name: '섹션 검토 (ATS)' }, { code: 'submit', name: '최종 제출 (크레딧 차감)' }];
   const idxOf = Object.fromEntries(ORDER.map((s, i) => [s.code, i])); const fc = ORDER.map(() => 0); let autofill = 0;
   for (const set of apps.values()) { if (set.has('autofill')) autofill++; let mx = -1; for (const st of set) if (idxOf[st] !== undefined && idxOf[st] > mx) mx = idxOf[st]; for (let i = 0; i <= mx; i++) fc[i] += 1; }
-  return { funnel: ORDER.map((s, i) => ({ name: s.name, apps: fc[i] })), submitTotal: submitApps.size, submitByDay: Object.fromEntries(Object.entries(submitByDay).map(([d, s]) => [d, s.size]).sort()), side: { autofillApps: autofill, atsAccountUsers: 0, draftCreateUsers: 0, startApps: fc[0] }, period: `${since} ~ ` };
+  return { funnel: ORDER.map((s, i) => ({ name: s.name, apps: fc[i] })), submitTotal: submitApps.size, submitByDay: Object.fromEntries(Object.entries(submitByDay).map(([d, s]) => [d, s.size]).sort()), side: { autofillApps: autofill, atsAccountUsers: 0, draftCreateUsers: 0, startApps: fc[0] }, period: periodLabel };
 }
 
 // 로켓 제출 상세 (공고명 해석: pageTitle 또는 같은 세션 최근접 JD)
@@ -268,25 +270,24 @@ function fillReport(tpl, chartjs, data, funnel, submits) {
 
   const today = kstToday(); const days = daysBetween(START, today);
   const archiveDir = path.join(OUT, 'dailyarchive'); fs.mkdirSync(archiveDir, { recursive: true });
-  const made = []; let lastDash = null, lastCm = null, lastFunnel = null, lastSubmits = null;
+  const made = [];
+  const SUBNOTE = "개인 식별자 없이 공고 단위 집계. 공고명은 페이지 제목에서 추출. '세션추정'은 목록/캘린더에서 제출되어 같은 세션의 가장 가까운 JD 방문으로 역추적한 값이라 실제와 다를 수 있음.";
   for (const D of days) {
+    const sinceMs = new Date(D + 'T00:00:00+09:00').getTime();
     const untilMs = new Date(D + 'T23:59:59.999+09:00').getTime();
-    const [dash, cm] = await Promise.all([buildDashboard(db, D), buildCareerMemory(db, D)]);
-    if (!dash.dailyVisits.length) { console.log('skip(데이터 없음)', D); continue; }
-    // 당일 자체 집계가 아직 없으면(예: 오늘 — daily_stat은 익일 00:10 KST 생성) 전날 복제본이 되므로 건너뜀
-    if (dash.dailyVisits[dash.dailyVisits.length - 1]._id !== D) { console.log('skip(당일 집계 전)', D); continue; }
-    lastDash = dash; lastCm = cm;
-    const funnel = funnelUpTo(ev, untilMs, START);
-    const rows = submitRows.filter((r) => r.day <= D);
-    const submits = { period: `${START} ~ ${D}`, total: rows.reduce((s, r) => s + r.count, 0), note: "개인 식별자 없이 공고 단위 집계. 공고명은 페이지 제목에서 추출. '세션추정'은 목록/캘린더에서 제출되어 같은 세션의 가장 가까운 JD 방문으로 역추적한 값이라 실제와 다를 수 있음.", rows };
+    // 아카이브는 "해당 일자 단독" 집계 (since=until=D)
+    const [dash, cm] = await Promise.all([buildDashboard(db, D, D), buildCareerMemory(db, D, D)]);
+    if (!dash.dailyVisits.length) { console.log('skip(데이터 없음/당일 집계 전)', D); continue; }
+    const funnel = funnelUpTo(ev, untilMs, sinceMs, D);
+    const rows = submitRows.filter((r) => r.day === D);
+    const submits = { period: D, total: rows.reduce((s, r) => s + r.count, 0), note: SUBNOTE, rows };
     fs.mkdirSync(path.join(archiveDir, D), { recursive: true });
     fs.writeFileSync(path.join(archiveDir, D, 'index.html'), fillReport(tpl, chartjs, { dashboard: dash, careerMemory: cm }, funnel, submits));
-    lastFunnel = funnel; lastSubmits = submits;
     made.push({ day: D, submits: submits.total });
-    console.log('생성', D, `(누적 제출 ${submits.total})`);
+    console.log('생성', D, `(당일 제출 ${submits.total})`);
   }
   // 목록 index (절대경로)
-  const rowsHtml = made.slice().reverse().map((m) => `<li><a href="${WEB}/${m.day}/">${m.day}</a> <span class="s">누적 제출 ${m.submits}건</span></li>`).join('\n');
+  const rowsHtml = made.slice().reverse().map((m) => `<li><a href="${WEB}/${m.day}/">${m.day}</a> <span class="s">당일 제출 ${m.submits}건</span></li>`).join('\n');
   const latest = made[made.length - 1]?.day;
   fs.writeFileSync(path.join(archiveDir, 'index.html'), `<!DOCTYPE html><html lang="ko" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">
 <title>JOBDA 행동 리포트 · 일별 아카이브</title><style>
@@ -298,7 +299,7 @@ ul{list-style:none;padding:0;margin:0}li{padding:10px 0;border-bottom:1px solid 
 a{font-weight:600;text-decoration:none;color:#2a78d6}a:hover{text-decoration:underline}.s{color:#898781;font-size:13px;margin-left:8px}
 .latest{display:inline-block;margin:0 0 20px;padding:8px 16px;background:#2a78d6;color:#fff;border-radius:8px;text-decoration:none}</style></head>
 <body><h1>JOBDA 행동 리포트 · 일별 아카이브</h1>
-<p class="sub">각 날짜는 그날까지 누적된 집계 리포트입니다 (개인정보 없음). 마지막 생성: ${today}</p>
+<p class="sub">각 날짜는 그 날 하루치(단일일) 집계 리포트입니다 (개인정보 없음). 커리어메모리·로켓지원 상세는 원본 로그 보관기간(약 5일) 특성상 최근 날짜만 채워집니다. 마지막 생성: ${today}</p>
 ${latest ? `<a class="latest" href="${WEB}/${latest}/">최신 리포트 (${latest}) 열기 →</a>` : ''}
 <ul>\n${rowsHtml}\n</ul></body></html>\n`);
 
@@ -316,18 +317,24 @@ ${latest ? `<a class="latest" href="${WEB}/${latest}/">최신 리포트 (${lates
   // ===== HOME (기본 화면) — 날짜 필터 + 네트워크 그래프
   const homeTpl = fs.readFileSync(path.join(HERE, 'home.tpl.html'), 'utf8');
   const flows = await buildFlows(db);
-  const latestDay = lastDash.dailyVisits[lastDash.dailyVisits.length - 1]._id;
+  const latestDay = made[made.length - 1].day;
+  // HOME은 전체 기간(START~latest) 데이터가 필요 — 아카이브(단일일)와 별도로 빌드
+  const homeUntilMs = new Date(latestDay + 'T23:59:59.999+09:00').getTime();
+  const [homeDash, homeCm] = await Promise.all([buildDashboard(db, latestDay), buildCareerMemory(db, latestDay)]);
+  const homeFunnel = funnelUpTo(ev, homeUntilMs, null, `${START} ~ ${latestDay}`);
+  const homeRows = submitRows.filter((r) => r.day <= latestDay);
+  const homeSubmits = { period: `${START} ~ ${latestDay}`, total: homeRows.reduce((s, r) => s + r.count, 0), note: SUBNOTE, rows: homeRows };
   const windowUsers = await computeWindowUsers(db, latestDay);
   const byId = (arr, k) => Object.fromEntries(arr.map((r) => [r._id, r[k]]));
-  const uMap = byId(lastDash.dailyUsers, 'users'), sMap = byId(lastDash.dailySessions, 'sessions'), qMap = byId(lastDash.dailySearches, 'searches');
-  const signMap = {}; for (const r of lastDash.authDaily) if (r._id.kind === 'signup') signMap[r._id.d] = (signMap[r._id.d] || 0) + r.n;
-  const fullDaily = lastDash.dailyVisits.map((r) => ({ d: r._id, visits: r.visits, users: uMap[r._id] || 0, sessions: sMap[r._id] || 0, searches: qMap[r._id] || 0, signups: signMap[r._id] || 0, desktop: r.desktop || 0, mobile: r.mobile || 0, tablet: r.tablet || 0 }));
-  const HOME = { generatedAt: new Date().toISOString(), latest: latestDay, fullDaily, windowUsers, features: lastDash.features, topRoutes: lastDash.topRoutes, topKeywords: lastDash.topKeywords };
+  const uMap = byId(homeDash.dailyUsers, 'users'), sMap = byId(homeDash.dailySessions, 'sessions'), qMap = byId(homeDash.dailySearches, 'searches');
+  const signMap = {}; for (const r of homeDash.authDaily) if (r._id.kind === 'signup') signMap[r._id.d] = (signMap[r._id.d] || 0) + r.n;
+  const fullDaily = homeDash.dailyVisits.map((r) => ({ d: r._id, visits: r.visits, users: uMap[r._id] || 0, sessions: sMap[r._id] || 0, searches: qMap[r._id] || 0, signups: signMap[r._id] || 0, desktop: r.desktop || 0, mobile: r.mobile || 0, tablet: r.tablet || 0 }));
+  const HOME = { generatedAt: new Date().toISOString(), latest: latestDay, fullDaily, windowUsers, features: homeDash.features, topRoutes: homeDash.topRoutes, topKeywords: homeDash.topKeywords };
   const homeOut = homeTpl
     .replace('__CHARTJS__', () => chartjs)
-    .replace('__DATA__', () => noLt(JSON.stringify({ dashboard: lastDash, careerMemory: lastCm })))
-    .replace('__ROCKETFUNNEL__', () => noLt(JSON.stringify(lastFunnel)))
-    .replace('__ROCKET__', () => noLt(JSON.stringify(lastSubmits)))
+    .replace('__DATA__', () => noLt(JSON.stringify({ dashboard: homeDash, careerMemory: homeCm })))
+    .replace('__ROCKETFUNNEL__', () => noLt(JSON.stringify(homeFunnel)))
+    .replace('__ROCKET__', () => noLt(JSON.stringify(homeSubmits)))
     .replace('__HOME__', () => noLt(JSON.stringify(HOME)))
     .replace('__FLOWS__', () => noLt(JSON.stringify(flows)));
   const homeDoc = `<!DOCTYPE html>\n<html lang="ko" data-theme="dark">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<meta name="robots" content="noindex">\n</head>\n<body>\n${homeOut}\n</body>\n</html>\n`;
