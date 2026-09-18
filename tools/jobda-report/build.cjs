@@ -272,7 +272,9 @@ function fillReport(tpl, chartjs, data, funnel, submits) {
   for (const D of days) {
     const untilMs = new Date(D + 'T23:59:59.999+09:00').getTime();
     const [dash, cm] = await Promise.all([buildDashboard(db, D), buildCareerMemory(db, D)]);
-    if (!dash.dailyVisits.length) { console.log('skip', D); continue; }
+    if (!dash.dailyVisits.length) { console.log('skip(데이터 없음)', D); continue; }
+    // 당일 자체 집계가 아직 없으면(예: 오늘 — daily_stat은 익일 00:10 KST 생성) 전날 복제본이 되므로 건너뜀
+    if (dash.dailyVisits[dash.dailyVisits.length - 1]._id !== D) { console.log('skip(당일 집계 전)', D); continue; }
     lastDash = dash; lastCm = cm;
     const funnel = funnelUpTo(ev, untilMs, START);
     const rows = submitRows.filter((r) => r.day <= D);
