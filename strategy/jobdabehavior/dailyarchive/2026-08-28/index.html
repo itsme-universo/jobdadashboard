@@ -162,11 +162,8 @@
     <ul id="findings"></ul>
   </div>
 
-  <h2 class="section">월간 요약</h2>
-  <p class="section-desc">
-    월 단위 집계. 기간을 선택해 보세요.
-    <select id="monthPick" class="month-pick"></select>
-  </p>
+  <h2 class="section">당일 요약</h2>
+  <p class="section-desc">이 날 하루(단일일) 집계입니다.</p>
   <div class="kpis" id="monthKpis"></div>
   <details class="glossary"><summary>용어 설명 (ⓘ 지표가 헷갈릴 때)</summary>
     <ul>
@@ -176,7 +173,7 @@
       <li><b>신규 가입</b> — 그 기간 회원가입을 <b>완료</b>한 수.</li>
       <li><b>검색</b> — 검색을 실행한 총 횟수.</li>
       <li><b>커리어메모리 전환율</b> — 커리어메모리 <b>방문자(순 사용자) 중</b> 노트 저장 또는 자료 업로드를 1회 이상 한 사람의 비율.</li>
-      <li>※ 월간 순 사용자는 그 달 전체 기준 중복 제거값이라, 일별 순 사용자를 더한 값과 다릅니다(같은 사람이 여러 날 접속).</li>
+      <li>※ 순 사용자는 로그인 사용자(userSn) 기준 중복 제거값입니다. 비로그인 방문자는 사람 단위로 세지 않습니다.</li>
     </ul>
   </details>
 
@@ -324,7 +321,7 @@
 //# sourceMappingURL=chart.umd.js.map
 </script>
 <script>
-const DATA = {"dashboard":{"generatedAt":"2026-09-18T05:24:14.548Z","dailyVisits":[{"_id":"2026-08-28","visits":43087,"desktop":42615,"mobile":472,"tablet":0}],"dailyUsers":[{"_id":"2026-08-28","users":3236}],"dailySessions":[{"_id":"2026-08-28","sessions":8203}],"dailySearches":[{"_id":"2026-08-28","searches":3201}],"features":[{"_id":"ASSESSMENT","visits":17563},{"_id":"ENTRY","visits":10809},{"_id":"JOB_EXPLORE","visits":5584},{"_id":"MATCHING","visits":3184},{"_id":"CAREER_MEMORY","visits":1922},{"_id":"CONTENT","visits":1699},{"_id":"APPLY","visits":1109},{"_id":"MYPAGE","visits":441},{"_id":"PROFILE","visits":419},{"_id":"INTERVIEW","visits":195},{"_id":"ETC","visits":74},{"_id":"CAREER_BOARD","visits":1}],"topRoutes":[{"_id":"HOME","visits":4796},{"_id":"ACCA_TEST","visits":4780},{"_id":"ACCA_RESULTS","visits":3933},{"_id":"POSITION_SN_JD","visits":2709},{"_id":"JOBFLEX_LOGIN","visits":2657},{"_id":"ACCA_RESULT_SAVE","visits":2214},{"_id":"ACCA_TUTORIAL_LOGIN","visits":2036},{"_id":"CAREER_MEMORY_SLUG","visits":1922},{"_id":"ACCA_TEST_LIST","visits":1810},{"_id":"COMPANY_SN","visits":1492}],"authDaily":[{"_id":{"d":"2026-08-28","kind":"signup"},"n":437},{"_id":{"d":"2026-08-28","kind":"login"},"n":4281}],"topKeywords":[{"_id":"임상병리사","n":52},{"_id":"(주)실리콘투","n":32},{"_id":"임상병리","n":24},{"_id":"세아제강","n":19},{"_id":"역량검사","n":18},{"_id":"방사선사","n":18},{"_id":"제약","n":17},{"_id":"(주)케이지이니시스","n":17},{"_id":"콜마","n":16},{"_id":"원무","n":15},{"_id":"환경","n":13},{"_id":"병리사","n":13},{"_id":"동국제약","n":12},{"_id":"회계","n":11},{"_id":"코스맥스","n":11}],"monthlyUsers":[{"_id":"2026-08","users":3236}]},"careerMemory":{"generatedAt":"2026-09-18T05:24:12.545Z","cmDaily":[{"_id":"2026-08-28","visits":1922,"uniqueUsers":448,"noteSaves":194,"fileUploads":81,"attachUploads":17}],"referrers":[{"name":"잡다 내부 · 홈","n":485},{"name":"잡다 내부 · ACCA(역량검사)","n":294},{"name":"잡다 내부 · 로그인","n":224},{"name":"잡다 내부 · 매칭","n":161},{"name":"직접 유입 / 앱","n":133},{"name":"검색 · Google","n":102},{"name":"로그인 리다이렉트","n":82},{"name":"잡다 내부 · 포지션","n":62},{"name":"검색 · Naver","n":49},{"name":"잡다 내부 · 마이페이지","n":46},{"name":"잡다 내부 · 커리어메모리","n":39},{"name":"잡다 내부 · 역검 응시(acca.ai)","n":37},{"name":"기타","n":208}],"behavior":{"summary":[{"_id":null,"n":2031,"avgDwellMs":39067.07336287543,"avgScroll":65.80403741999015}],"dwell":[{"_id":0,"n":1493},{"_id":10000,"n":241},{"_id":30000,"n":119},{"_id":60000,"n":119},{"_id":180000,"n":59}],"scroll":[{"_id":0,"n":4},{"_id":25,"n":828},{"_id":50,"n":400},{"_id":75,"n":799}]},"cmFunnel":{"_id":null,"visitors":461,"savers":43,"uploaders":73,"engaged":96},"linkage":{"_id":null,"cmUsers":462,"both":14,"cmAndSubmit":5}}};
+const DATA = {"dashboard":{"generatedAt":"2026-09-18T05:38:57.252Z","dailyVisits":[{"_id":"2026-08-28","visits":43087,"desktop":42615,"mobile":472,"tablet":0}],"dailyUsers":[{"_id":"2026-08-28","users":3236}],"dailySessions":[{"_id":"2026-08-28","sessions":8203}],"dailySearches":[{"_id":"2026-08-28","searches":3201}],"features":[{"_id":"ASSESSMENT","visits":17563},{"_id":"ENTRY","visits":10809},{"_id":"JOB_EXPLORE","visits":5584},{"_id":"MATCHING","visits":3184},{"_id":"CAREER_MEMORY","visits":1922},{"_id":"CONTENT","visits":1699},{"_id":"APPLY","visits":1109},{"_id":"MYPAGE","visits":441},{"_id":"PROFILE","visits":419},{"_id":"INTERVIEW","visits":195},{"_id":"ETC","visits":74},{"_id":"CAREER_BOARD","visits":1}],"topRoutes":[{"_id":"HOME","visits":4796},{"_id":"ACCA_TEST","visits":4780},{"_id":"ACCA_RESULTS","visits":3933},{"_id":"POSITION_SN_JD","visits":2709},{"_id":"JOBFLEX_LOGIN","visits":2657},{"_id":"ACCA_RESULT_SAVE","visits":2214},{"_id":"ACCA_TUTORIAL_LOGIN","visits":2036},{"_id":"CAREER_MEMORY_SLUG","visits":1922},{"_id":"ACCA_TEST_LIST","visits":1810},{"_id":"COMPANY_SN","visits":1492}],"authDaily":[{"_id":{"d":"2026-08-28","kind":"login"},"n":4281},{"_id":{"d":"2026-08-28","kind":"signup"},"n":437}],"topKeywords":[{"_id":"임상병리사","n":52},{"_id":"(주)실리콘투","n":32},{"_id":"임상병리","n":24},{"_id":"세아제강","n":19},{"_id":"역량검사","n":18},{"_id":"방사선사","n":18},{"_id":"(주)케이지이니시스","n":17},{"_id":"제약","n":17},{"_id":"콜마","n":16},{"_id":"원무","n":15},{"_id":"병리사","n":13},{"_id":"환경","n":13},{"_id":"동국제약","n":12},{"_id":"(주)다스","n":11},{"_id":"회계","n":11}],"monthlyUsers":[{"_id":"2026-08","users":3236}]},"careerMemory":{"generatedAt":"2026-09-18T05:38:55.340Z","cmDaily":[{"_id":"2026-08-28","visits":1922,"uniqueUsers":448,"noteSaves":194,"fileUploads":81,"attachUploads":17}],"referrers":[{"name":"잡다 내부 · 홈","n":485},{"name":"잡다 내부 · ACCA(역량검사)","n":294},{"name":"잡다 내부 · 로그인","n":224},{"name":"잡다 내부 · 매칭","n":161},{"name":"직접 유입 / 앱","n":133},{"name":"검색 · Google","n":102},{"name":"로그인 리다이렉트","n":82},{"name":"잡다 내부 · 포지션","n":62},{"name":"검색 · Naver","n":49},{"name":"잡다 내부 · 마이페이지","n":46},{"name":"잡다 내부 · 커리어메모리","n":39},{"name":"잡다 내부 · 역검 응시(acca.ai)","n":37},{"name":"기타","n":208}],"behavior":{"summary":[{"_id":null,"n":2031,"avgDwellMs":39067.07336287543,"avgScroll":65.80403741999015}],"dwell":[{"_id":0,"n":1493},{"_id":10000,"n":241},{"_id":30000,"n":119},{"_id":60000,"n":119},{"_id":180000,"n":59}],"scroll":[{"_id":0,"n":4},{"_id":25,"n":828},{"_id":50,"n":400},{"_id":75,"n":799}]},"cmFunnel":{"_id":null,"visitors":461,"savers":43,"uploaders":73,"engaged":96},"linkage":{"_id":null,"cmUsers":462,"both":14,"cmAndSubmit":5}}};
 const ROCKET_SUBMITS = {"period":"2026-08-28","total":5,"note":"개인 식별자 없이 공고 단위 집계. 공고명은 페이지 제목에서 추출. '세션추정'은 목록/캘린더에서 제출되어 같은 세션의 가장 가까운 JD 방문으로 역추적한 값이라 실제와 다를 수 있음.","rows":[{"day":"2026-08-28","company":"(주)제이에이에스","position":"공항서비스 · 신입 · 인천공항","sn":"263630","count":1,"conf":"JD 확정","flag":""},{"day":"2026-08-28","company":"미확인","position":"—","sn":"264568","count":1,"conf":"해석 불가","flag":"unresolved"},{"day":"2026-08-28","company":"동부건설(주)","position":"신입 · 플랜트사업본부 · 건축 · 본사 및 현장(국내/해외)","sn":"263579","count":1,"conf":"세션추정(17분)","flag":""},{"day":"2026-08-28","company":"SG한국삼공","position":"한국삼공(주) 영업 직무 인재Pool","sn":"261988","count":1,"conf":"세션추정(2분)","flag":""},{"day":"2026-08-28","company":"코리아크레딧뷰로(주)","position":"계약관리 및 웹서비스운영","sn":"264341","count":1,"conf":"세션추정(87분)","flag":""}]};
 const ROCKET_FUNNEL = {"funnel":[{"name":"지원 시작","apps":20},{"name":"약관 동의","apps":15},{"name":"지원 부문 선택","apps":14},{"name":"지원서 작성","apps":14},{"name":"섹션 검토 (ATS)","apps":14},{"name":"최종 제출 (크레딧 차감)","apps":5}],"submitTotal":5,"submitByDay":{"2026-08-28":5},"side":{"autofillApps":13,"atsAccountUsers":0,"draftCreateUsers":0,"startApps":20},"period":"2026-08-28"};
 
@@ -439,37 +436,21 @@ const rate = (a, b) => (b > 0 ? ((a / b) * 100).toFixed(1) : '–');
 const esc2 = (s) => String(s).replace(/"/g, '&quot;');
 const info = (t) => ` <span class="info" tabindex="0" title="${esc2(t)}">ⓘ</span>`;
 
-// 월간 요약 + 기간 필터
+// 당일 요약 (아카이브는 단일일 집계)
 function renderMonthly() {
   const d = DATA.dashboard;
-  const sum = (arr, k) => arr.reduce((s, r) => s + (r[k] || 0), 0);
-  const byMonth = (arr, k) => { const m = {}; for (const r of arr) { const mo = r._id.slice(0, 7); m[mo] = (m[mo] || 0) + (r[k] || 0); } return m; };
-  const vM = byMonth(d.dailyVisits, 'visits'), sM = byMonth(d.dailySessions, 'sessions'), qM = byMonth(d.dailySearches, 'searches');
-  const uM = Object.fromEntries((d.monthlyUsers || []).map((r) => [r._id, r.users]));
-  const signM = {}; for (const r of d.authDaily) { if (r._id.kind === 'signup') { const mo = r._id.d.slice(0, 7); signM[mo] = (signM[mo] || 0) + r.n; } }
-  const months = [...new Set(d.dailyVisits.map((r) => r._id.slice(0, 7)))].sort();
-  const range = {}; for (const r of d.dailyVisits) { const mo = r._id.slice(0, 7); (range[mo] ??= { a: r._id, b: r._id }); if (r._id < range[mo].a) range[mo].a = r._id; if (r._id > range[mo].b) range[mo].b = r._id; }
-  const todayKst = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
-
-  const sel = $('monthPick');
-  if (sel && !sel.dataset.filled) {
-    sel.innerHTML = ['<option value="all">전체 기간</option>'].concat(months.slice().reverse().map((m) => `<option value="${m}">${m.replace('-', '년 ') + '월'}</option>`)).join('');
-    sel.value = months[months.length - 1] || 'all';
-    sel.dataset.filled = '1';
-    sel.addEventListener('change', renderMonthly);
-  }
-  const pick = sel ? sel.value : 'all';
-  const scope = (obj) => pick === 'all' ? Object.values(obj).reduce((s, v) => s + v, 0) : (obj[pick] || 0);
-  const label = pick === 'all' ? `${range[months[0]]?.a} ~ ${range[months[months.length - 1]]?.b}` : `${range[pick]?.a} ~ ${range[pick]?.b}`;
-  const ongoing = pick !== 'all' && range[pick]?.b >= todayKst.slice(0, 10) && pick === todayKst.slice(0, 7);
-  // 순 사용자: 월 선택 시 월 distinct, 전체 선택 시 "월 distinct 합(참고)" 대신 최대월 표기 회피 → 전체는 '–' 처리하고 안내
-  const uv = pick === 'all' ? null : (uM[pick] ?? null);
+  const sumk = (arr, k) => arr.reduce((s, r) => s + (r[k] || 0), 0);
+  const day = d.dailyVisits.length ? d.dailyVisits[d.dailyVisits.length - 1]._id : '';
+  const visits = sumk(d.dailyVisits, 'visits');
+  const sessions = sumk(d.dailySessions, 'sessions');
+  const uv = d.dailyUsers.length ? sumk(d.dailyUsers, 'users') : null;
+  let signup = 0; for (const r of d.authDaily) if (r._id.kind === 'signup') signup += r.n;
 
   $('monthKpis').innerHTML =
-    tile('방문(유입)' + info('그 기간 페이지가 열린 총 횟수(페이지뷰).'), scope(vM), null, label + (ongoing ? ' · 진행중' : '')) +
-    tile('세션' + info('그 기간 방문 묶음(접속~이탈) 수.'), scope(sM), null, null) +
-    tile('순 사용자' + info('그 달에 실제 접속한 사람 수(중복 제거, userSn). 월 선택 시에만 정확. 전체 기간은 달별로 확인하세요.'), uv, null, uv == null ? '월 선택 시 표시' : null) +
-    tile('신규 가입' + info('그 기간 회원가입을 완료한 수.'), scope(signM), null, null);
+    tile('방문(유입)' + info('이 날 페이지가 열린 총 횟수(페이지뷰).'), visits, null, day) +
+    tile('세션' + info('이 날 방문 묶음(접속~이탈) 수.'), sessions, null, null) +
+    tile('순 사용자' + info('이 날 실제 접속한 사람 수(중복 제거). 로그인 사용자(userSn) 기준이라 비로그인 방문자는 빠집니다.'), uv, null, null) +
+    tile('신규 가입' + info('이 날 회원가입을 완료한 수. [①] 브라우저 추적 신호 기준이라 서버 실측보다 약 5~10% 적게 잡힙니다.'), signup, null, null);
 }
 
 const STAGE_INFO = [

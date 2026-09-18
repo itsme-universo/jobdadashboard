@@ -509,37 +509,21 @@ const rate = (a, b) => (b > 0 ? ((a / b) * 100).toFixed(1) : '–');
 const esc2 = (s) => String(s).replace(/"/g, '&quot;');
 const info = (t) => ` <span class="tip" data-tip="${esc2(t)}" tabindex="0">ⓘ</span>`;
 
-// 월간 요약 + 기간 필터
+// 당일 요약 (아카이브는 단일일 집계)
 function renderMonthly() {
   const d = DATA.dashboard;
-  const sum = (arr, k) => arr.reduce((s, r) => s + (r[k] || 0), 0);
-  const byMonth = (arr, k) => { const m = {}; for (const r of arr) { const mo = r._id.slice(0, 7); m[mo] = (m[mo] || 0) + (r[k] || 0); } return m; };
-  const vM = byMonth(d.dailyVisits, 'visits'), sM = byMonth(d.dailySessions, 'sessions'), qM = byMonth(d.dailySearches, 'searches');
-  const uM = Object.fromEntries((d.monthlyUsers || []).map((r) => [r._id, r.users]));
-  const signM = {}; for (const r of d.authDaily) { if (r._id.kind === 'signup') { const mo = r._id.d.slice(0, 7); signM[mo] = (signM[mo] || 0) + r.n; } }
-  const months = [...new Set(d.dailyVisits.map((r) => r._id.slice(0, 7)))].sort();
-  const range = {}; for (const r of d.dailyVisits) { const mo = r._id.slice(0, 7); (range[mo] ??= { a: r._id, b: r._id }); if (r._id < range[mo].a) range[mo].a = r._id; if (r._id > range[mo].b) range[mo].b = r._id; }
-  const todayKst = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
-
-  const sel = $('monthPick');
-  if (sel && !sel.dataset.filled) {
-    sel.innerHTML = ['<option value="all">전체 기간</option>'].concat(months.slice().reverse().map((m) => `<option value="${m}">${m.replace('-', '년 ') + '월'}</option>`)).join('');
-    sel.value = months[months.length - 1] || 'all';
-    sel.dataset.filled = '1';
-    sel.addEventListener('change', renderMonthly);
-  }
-  const pick = sel ? sel.value : 'all';
-  const scope = (obj) => pick === 'all' ? Object.values(obj).reduce((s, v) => s + v, 0) : (obj[pick] || 0);
-  const label = pick === 'all' ? `${range[months[0]]?.a} ~ ${range[months[months.length - 1]]?.b}` : `${range[pick]?.a} ~ ${range[pick]?.b}`;
-  const ongoing = pick !== 'all' && range[pick]?.b >= todayKst.slice(0, 10) && pick === todayKst.slice(0, 7);
-  // 순 사용자: 월 선택 시 월 distinct, 전체 선택 시 "월 distinct 합(참고)" 대신 최대월 표기 회피 → 전체는 '–' 처리하고 안내
-  const uv = pick === 'all' ? null : (uM[pick] ?? null);
+  const sumk = (arr, k) => arr.reduce((s, r) => s + (r[k] || 0), 0);
+  const day = d.dailyVisits.length ? d.dailyVisits[d.dailyVisits.length - 1]._id : '';
+  const visits = sumk(d.dailyVisits, 'visits');
+  const sessions = sumk(d.dailySessions, 'sessions');
+  const uv = d.dailyUsers.length ? sumk(d.dailyUsers, 'users') : null;
+  let signup = 0; for (const r of d.authDaily) if (r._id.kind === 'signup') signup += r.n;
 
   $('monthKpis').innerHTML =
-    tile('방문(유입)' + info('그 기간 페이지가 열린 총 횟수(페이지뷰).'), scope(vM), null, label + (ongoing ? ' · 진행중' : '')) +
-    tile('세션' + info('그 기간 방문 묶음(접속~이탈) 수.'), scope(sM), null, null) +
-    tile('순 사용자' + info('그 달에 실제 접속한 사람 수(중복 제거, userSn). 월 선택 시에만 정확. 전체 기간은 달별로 확인하세요.'), uv, null, uv == null ? '월 선택 시 표시' : null) +
-    tile('신규 가입' + info('그 기간 회원가입을 완료한 수.'), scope(signM), null, null);
+    tile('방문(유입)' + info('이 날 페이지가 열린 총 횟수(페이지뷰).'), visits, null, day) +
+    tile('세션' + info('이 날 방문 묶음(접속~이탈) 수.'), sessions, null, null) +
+    tile('순 사용자' + info('이 날 실제 접속한 사람 수(중복 제거). 로그인 사용자(userSn) 기준이라 비로그인 방문자는 빠집니다.'), uv, null, null) +
+    tile('신규 가입' + info('이 날 회원가입을 완료한 수. [①] 브라우저 추적 신호 기준이라 서버 실측보다 약 5~10% 적게 잡힙니다.'), signup, null, null);
 }
 
 const STAGE_INFO = [
