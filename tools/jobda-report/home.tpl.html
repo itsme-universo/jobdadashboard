@@ -219,7 +219,7 @@
   <div class="kpis" id="homeKpis"></div>
   <div class="grid">
     <div class="card wide">
-      <h3>일별 추이</h3><p class="desc">선택 기간의 방문 · 세션 · 순 사용자(일별) · 가입</p>
+      <h3 id="homeTrendTitle">일별 추이</h3><p class="desc" id="homeTrendDesc">선택 기간의 방문 · 세션 · 순 사용자(일별) · 가입</p>
       <div class="plot" style="height:290px"><canvas id="cHomeTrend"></canvas></div>
     </div>
   </div>
@@ -787,9 +787,21 @@ function renderHome(userAction){
     T('순 사용자',uv,un,'중복 제거한 실제 사람 수. 로그인=userSn, 비로그인=세션 기준. 일별 값을 더할 수 없어 기간 전체로 다시 셈.')+
     T('신규 가입',sum('signups'),'회원가입 완료','그 기간 회원가입을 완료한 수.')+
     T('검색',sum('searches'),'검색 실행 수','검색을 실행한 총 횟수.');
-  const labels=rows.map(r=>r.d.slice(5).replace('-','/'));
-  const line=(l,d,c)=>({label:l,data:d,borderColor:c,backgroundColor:c,borderWidth:2,pointRadius:rows.length>60?0:2,pointHoverRadius:5,tension:.15,pointBackgroundColor:c,pointBorderColor:cssVar('--surface'),pointBorderWidth:2});
-  homeCharts.push(new Chart(document.getElementById('cHomeTrend'),{type:'line',data:{labels,datasets:[line('방문',rows.map(r=>r.visits),cssVar('--s1')),line('세션',rows.map(r=>r.sessions),cssVar('--s2')),line('순 사용자(일)',rows.map(r=>r.users),cssVar('--s3')),line('가입',rows.map(r=>r.signups),cssVar('--s5'))]},options:baseOptions()}));
+  const line=(l,d,c)=>({label:l,data:d,borderColor:c,backgroundColor:c,borderWidth:2,pointRadius:2,pointHoverRadius:5,tension:.15,pointBackgroundColor:c,pointBorderColor:cssVar('--surface'),pointBorderWidth:2});
+  const tt=document.getElementById('homeTrendTitle'),td=document.getElementById('homeTrendDesc');
+  const hd=(rows.length===1&&HOME.hourly)?HOME.hourly[rows[0].d]:null;
+  if(hd){
+    if(tt)tt.textContent='시간대별 추이';
+    if(td)td.textContent=rows[0].d+' · 0~23시 (KST) · 방문 · 세션 · 순 사용자';
+    const hl=hd.map(x=>x.h+'시');
+    homeCharts.push(new Chart(document.getElementById('cHomeTrend'),{type:'line',data:{labels:hl,datasets:[line('방문',hd.map(x=>x.visits),cssVar('--s1')),line('세션',hd.map(x=>x.sessions),cssVar('--s2')),line('순 사용자',hd.map(x=>x.users),cssVar('--s3'))]},options:baseOptions()}));
+  } else {
+    if(tt)tt.textContent='일별 추이';
+    if(td)td.textContent=(rows.length===1?'이 날은 시간대 데이터가 없어 일 합계만 표시합니다.':'선택 기간의 방문 · 세션 · 순 사용자(일별) · 가입');
+    const labels=rows.map(r=>r.d.slice(5).replace('-','/'));
+    const dline=(l,d,c)=>({label:l,data:d,borderColor:c,backgroundColor:c,borderWidth:2,pointRadius:rows.length>60?0:2,pointHoverRadius:5,tension:.15,pointBackgroundColor:c,pointBorderColor:cssVar('--surface'),pointBorderWidth:2});
+    homeCharts.push(new Chart(document.getElementById('cHomeTrend'),{type:'line',data:{labels,datasets:[dline('방문',rows.map(r=>r.visits),cssVar('--s1')),dline('세션',rows.map(r=>r.sessions),cssVar('--s2')),dline('순 사용자(일)',rows.map(r=>r.users),cssVar('--s3')),dline('가입',rows.map(r=>r.signups),cssVar('--s5'))]},options:baseOptions()}));
+  }
   bindTips();
 }
 // 탭

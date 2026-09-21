@@ -247,6 +247,26 @@ async function computeWindowUsers(db, latest) {
   return out;
 }
 
+// 시간대별(0~23시) 집계 — tracking_log(원본, 최근 ~5일)에만 시각 정보가 있음
+async function buildHourly(db) {
+  const tl = db.collection('tracking_log');
+  const kh = { $dateToString: { format: '%Y-%m-%dT%H', date: '$timestamp', timezone: KST } };
+  const [r] = await tl.aggregate([
+    { $match: { eventType: 'VISIT' } },
+    { $facet: {
+      v: [{ $group: { _id: kh, n: { $sum: 1 } } }],
+      s: [{ $group: { _id: { k: kh, x: '$sessionId' } } }, { $group: { _id: '$_id.k', n: { $sum: 1 } } }],
+      u: [{ $match: { userSn: { $gt: 0 } } }, { $group: { _id: { k: kh, x: '$userSn' } } }, { $group: { _id: '$_id.k', n: { $sum: 1 } } }],
+    } },
+  ], { allowDiskUse: true }).toArray();
+  const out = {};
+  const put = (arr, key) => { for (const x of arr) { const [d, h] = x._id.split('T'); (out[d] ??= {}); (out[d][+h] ??= { visits: 0, sessions: 0, users: 0 }); out[d][+h][key] = x.n; } };
+  put(r.v, 'visits'); put(r.s, 'sessions'); put(r.u, 'users');
+  const result = {};
+  for (const d of Object.keys(out)) { if (d < START) continue; result[d] = []; for (let h = 0; h < 24; h++) { const c = out[d][h] || { visits: 0, sessions: 0, users: 0 }; result[d].push({ h, visits: c.visits, sessions: c.sessions, users: c.users }); } }
+  return result;
+}
+
 function fillReport(tpl, chartjs, data, funnel, submits) {
   const out = tpl.replace('__CHARTJS__', () => chartjs).replace('__DATA__', () => noLt(JSON.stringify(data)))
     .replace('__ROCKETFUNNEL__', () => noLt(JSON.stringify(funnel))).replace('__ROCKET__', () => noLt(JSON.stringify(submits)));
@@ -325,11 +345,12 @@ ${latest ? `<a class="latest" href="${WEB}/${latest}/">최신 리포트 (${lates
   const homeRows = submitRows.filter((r) => r.day <= latestDay);
   const homeSubmits = { period: `${START} ~ ${latestDay}`, total: homeRows.reduce((s, r) => s + r.count, 0), note: SUBNOTE, rows: homeRows };
   const windowUsers = await computeWindowUsers(db, latestDay);
+  const hourly = await buildHourly(db);
   const byId = (arr, k) => Object.fromEntries(arr.map((r) => [r._id, r[k]]));
   const uMap = byId(homeDash.dailyUsers, 'users'), sMap = byId(homeDash.dailySessions, 'sessions'), qMap = byId(homeDash.dailySearches, 'searches');
   const signMap = {}; for (const r of homeDash.authDaily) if (r._id.kind === 'signup') signMap[r._id.d] = (signMap[r._id.d] || 0) + r.n;
   const fullDaily = homeDash.dailyVisits.map((r) => ({ d: r._id, visits: r.visits, users: uMap[r._id] || 0, sessions: sMap[r._id] || 0, searches: qMap[r._id] || 0, signups: signMap[r._id] || 0, desktop: r.desktop || 0, mobile: r.mobile || 0, tablet: r.tablet || 0 }));
-  const HOME = { generatedAt: new Date().toISOString(), latest: latestDay, fullDaily, windowUsers, features: homeDash.features, topRoutes: homeDash.topRoutes, topKeywords: homeDash.topKeywords };
+  const HOME = { generatedAt: new Date().toISOString(), latest: latestDay, fullDaily, windowUsers, hourly, features: homeDash.features, topRoutes: homeDash.topRoutes, topKeywords: homeDash.topKeywords };
   const homeOut = homeTpl
     .replace('__CHARTJS__', () => chartjs)
     .replace('__DATA__', () => noLt(JSON.stringify({ dashboard: homeDash, careerMemory: homeCm })))
