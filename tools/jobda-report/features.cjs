@@ -1,4 +1,4 @@
-// 면접연습 · 인재풀(매칭) 탭 집계 — 집계 전용, 개인 식별정보 미출력
+// 면접연습(커리어보드) · 인재풀 탭 집계 — 집계 전용, 개인 식별정보 미출력
 const KST = '+09:00';
 const START = '2026-08-27';
 const kstDay = (f) => ({ $dateToString: { format: '%Y-%m-%d', date: f, timezone: KST } });
@@ -9,51 +9,58 @@ const range = (until) => ({ $gte: new Date(START + 'T00:00:00+09:00'), $lte: new
 const agg = (c, p) => c.aggregate(p, { allowDiskUse: true }).toArray();
 const DWELL_B = [0, 30000, 60000, 180000, 300000, 600000, 1e9];
 
-async function buildInterview(db, until, bucketReferrer) {
-  const ds = db.collection('tracking_daily_stat'), tl = db.collection('tracking_log');
-  const T = { timestamp: range(until) };
-  const IV = { $regex: '^(PASS_INTERVIEW|AGENT_INTERVIEW|MYPAGE_INTERVIEW)' };
-  const sumIf = (cond) => ({ $sum: { $cond: [cond, '$count', 0] } });
-  const isV = (r) => ({ $and: [{ $eq: ['$eventType', 'VISIT'] }, { $eq: ['$routeName', r] }] });
-  const [daily, users, practice, referrers, dwell, linkage] = await Promise.all([
-    agg(ds, [{ $match: { date: range(until), routeName: IV } }, { $group: { _id: kstDay('$date'),
-      home: sumIf(isV('PASS_INTERVIEW')), start: sumIf(isV('PASS_INTERVIEW_START')), practice: sumIf(isV('PASS_INTERVIEW_PRACTICE')),
-      history: sumIf(isV('PASS_INTERVIEW_HISTORY')), agent: sumIf({ $and: [{ $eq: ['$eventType', 'VISIT'] }, { $regexMatch: { input: '$routeName', regex: '^AGENT_INTERVIEW' } }] }),
-      select: sumIf({ $eq: ['$eventTarget', 'INTERVIEW_QUESTION_SELECT'] }),
-      homeUsers: { $sum: { $cond: [isV('PASS_INTERVIEW'), '$uniqueUsers', 0] } } } }, { $sort: { _id: 1 } }]),
-    // 사람 단위 도달 여부 (기간 전체)
-    agg(tl, [{ $match: { ...T, routeName: IV } }, { $group: { _id: WHO,
-      home: flag({ $and: [{ $eq: ['$eventType', 'VISIT'] }, { $eq: ['$routeName', 'PASS_INTERVIEW'] }] }),
-      start: flag({ $and: [{ $eq: ['$eventType', 'VISIT'] }, { $eq: ['$routeName', 'PASS_INTERVIEW_START'] }] }),
-      select: flag({ $eq: ['$eventTarget', 'INTERVIEW_QUESTION_SELECT'] }),
-      practice: flag({ $and: [{ $eq: ['$eventType', 'VISIT'] }, { $eq: ['$routeName', 'PASS_INTERVIEW_PRACTICE'] }] }),
-      history: flag({ $and: [{ $eq: ['$eventType', 'VISIT'] }, { $eq: ['$routeName', 'PASS_INTERVIEW_HISTORY'] }] }) } },
-      { $group: { _id: null, any: { $sum: 1 }, loggedIn: { $sum: { $cond: [{ $eq: [{ $substrCP: ['$_id', 0, 2] }, 'u:'] }, 1, 0] } },
-        home: { $sum: '$home' }, start: { $sum: '$start' }, select: { $sum: '$select' }, practice: { $sum: '$practice' }, history: { $sum: '$history' },
-        reach: { $sum: { $max: ['$select', '$practice'] } } } }]),
-    // 실제 연습 건수 = interviewPracticeSn 유니크
-    agg(tl, [{ $match: { ...T, routeName: 'PASS_INTERVIEW_PRACTICE', eventType: 'VISIT' } },
-      { $project: { d: kstDay('$timestamp'), sn: { $arrayElemAt: [{ $split: [{ $arrayElemAt: [{ $split: [{ $ifNull: ['$fullUrl', ''] }, 'interviewPracticeSn='] }, 1] }, '&'] }, 0] } } },
-      { $group: { _id: { d: '$d', sn: '$sn' } } }, { $group: { _id: '$_id.d', n: { $sum: 1 } } }, { $sort: { _id: 1 } }]),
-    agg(tl, [{ $match: { ...T, routeName: { $in: ['PASS_INTERVIEW', 'PASS_INTERVIEW_START'] }, eventType: 'VISIT' } },
-      { $group: { _id: { $arrayElemAt: [{ $split: [{ $ifNull: ['$referrer', ''] }, '?'] }, 0] }, n: { $sum: 1 } } }, { $sort: { n: -1 } }, { $limit: 150 }]),
-    agg(tl, [{ $match: { ...T, routeName: 'PASS_INTERVIEW_PRACTICE', eventType: 'LEAVE', 'metadata.dwellMs': { $gte: 0 } } }, { $facet: {
-      avg: [{ $group: { _id: null, n: { $sum: 1 }, avg: { $avg: '$metadata.dwellMs' } } }],
-      b: [{ $bucket: { groupBy: '$metadata.dwellMs', boundaries: DWELL_B, default: -1, output: { n: { $sum: 1 } } } }] } }]),
-    // 면접연습 사용자(로그인)의 다른 기능 이용
-    agg(tl, [{ $match: { ...T, userSn: { $gt: 0 }, eventType: { $in: ['VISIT', 'COMPLETE'] } } }, { $group: { _id: '$userSn',
-      iv: flag({ $eq: ['$feature', 'INTERVIEW'] }), acca: flag({ $eq: ['$feature', 'ASSESSMENT'] }), cm: flag({ $eq: ['$routeName', 'CAREER_MEMORY_SLUG'] }),
-      match: flag({ $eq: ['$feature', 'MATCHING'] }), rocket: flag({ $eq: ['$eventTarget', 'ROCKET_SUBMIT'] }) } }, { $match: { iv: 1 } },
-      { $group: { _id: null, iv: { $sum: 1 }, acca: { $sum: '$acca' }, cm: { $sum: '$cm' }, match: { $sum: '$match' }, rocket: { $sum: '$rocket' } } }]),
+// 면접연습 = 커리어보드 위저드(/career-board?ipStep=…, 2026-10-13~). 기준 = 토큰 사용.
+//  토큰 사용 1건 = INTERVIEW_SET_CREATE COMPLETE(질문세트 생성 API 성공, 직전 INTERVIEW_START 클릭의 creditCost=1)
+//  원본 tracking_log 기준이라 오늘(집계 시각까지) 포함. 사람 = userSn(비로그인은 세션).
+const IV_SINCE = '2026-10-13';
+const IV_ENTRY_KO = { home_banner: '홈 배너', acca_gate_banner: '역검 응시 화면 배너', acca_result_banner: '역검 결과 배너', gnb: '상단 메뉴(GNB)', welcome_credit: '웰컴 크레딧 팝업',
+  memory_panel: '커리어메모리 패널', report_repractice: '리포트 → 다시 연습', widget_new: '커리어보드 위젯', external: '외부 링크', internal: '내부 링크' };
+const IV_TYPE_KO = { SELF_INTRODUCTION: '자기소개', JOB_FIT: '직무 적합', ONBOARDING: '온보딩(체험)' };
+const IV_MODE_KO = { av: '영상(카메라·음성)', text: '텍스트', video: '영상 답변', audio: '음성 답변' };
+const IV_INTERVIEWER_KO = { 'interviewer-3d-man-30': '3D 면접관 · 남 30대', 'interviewer-3d-man-40': '3D 면접관 · 남 40대', 'interviewer-3d-woman-30': '3D 면접관 · 여 30대', 'interviewer-3d-woman-40': '3D 면접관 · 여 40대' };
+async function buildInterview(db) {
+  const tl = db.collection('tracking_log');
+  const since = new Date(IV_SINCE + 'T00:00:00+09:00');
+  const T = { timestamp: { $gte: since } };
+  const isCB = { routeName: 'CAREER_BOARD', feature: 'INTERVIEW' };
+  const IVM = { ...T, $or: [isCB, { eventTarget: { $in: ['INTERVIEW_BANNER', 'INTERVIEW_ENTRY', 'INTERVIEW_SET_CREATE', 'INTERVIEW_START', 'INTERVIEW_SESSION_DONE', 'INTERVIEW_REPORT_CREATE', 'INTERVIEW_REPORT', 'INTERVIEW_VIDEO_ANALYSIS_DONE', 'MEMORY_SYNC_INTERVIEW', 'INTERVIEW_SETTING', 'INTERVIEW_ANSWER_SUBMIT', 'INTERVIEW_ATTEMPT_START'] } }] };
+  const is = (e, t) => ({ $and: [{ $eq: ['$eventTarget', e] }, ...(t ? [{ $eq: ['$eventType', t] }] : [])] });
+  const hourKey = { $dateToString: { format: '%Y-%m-%dT%H', date: '$timestamp', timezone: KST } };
+  const [people, daily, hourly, entry, mix, perUser] = await Promise.all([
+    agg(tl, [{ $match: IVM }, { $group: { _id: WHO,
+      banner: flag(is('INTERVIEW_BANNER', 'VIEW')), click: flag(is('INTERVIEW_ENTRY', 'CLICK')),
+      visit: flag({ $and: [{ $eq: ['$routeName', 'CAREER_BOARD'] }, { $eq: ['$feature', 'INTERVIEW'] }, { $eq: ['$eventType', 'VISIT'] }] }),
+      setting: flag(is('INTERVIEW_SETTING')), token: flag(is('INTERVIEW_SET_CREATE', 'COMPLETE')), answer: flag(is('INTERVIEW_ANSWER_SUBMIT')),
+      done: flag(is('INTERVIEW_SESSION_DONE')), report: flag(is('INTERVIEW_REPORT', 'VIEW')), memory: flag(is('MEMORY_SYNC_INTERVIEW')) } },
+      { $group: { _id: null, banner: { $sum: '$banner' }, click: { $sum: '$click' }, visit: { $sum: '$visit' }, setting: { $sum: '$setting' }, token: { $sum: '$token' },
+        answer: { $sum: '$answer' }, done: { $sum: '$done' }, report: { $sum: '$report' }, memory: { $sum: '$memory' } } }]),
+    // 일별: 토큰 사용 건수·사용자, 면접 완료, 리포트 생성
+    agg(tl, [{ $match: { ...T, eventTarget: { $in: ['INTERVIEW_SET_CREATE', 'INTERVIEW_SESSION_DONE', 'INTERVIEW_REPORT_CREATE', 'INTERVIEW_ENTRY'] } } },
+      { $group: { _id: kstDay('$timestamp'), tokens: { $sum: { $cond: [is('INTERVIEW_SET_CREATE', 'COMPLETE'), 1, 0] } }, tu: { $addToSet: { $cond: [is('INTERVIEW_SET_CREATE', 'COMPLETE'), WHO, '$$REMOVE'] } },
+        done: { $sum: { $cond: [is('INTERVIEW_SESSION_DONE'), 1, 0] } }, reports: { $sum: { $cond: [is('INTERVIEW_REPORT_CREATE'), 1, 0] } }, entries: { $sum: { $cond: [is('INTERVIEW_ENTRY', 'CLICK'), 1, 0] } } } },
+      { $project: { tokens: 1, tokenUsers: { $size: '$tu' }, done: 1, reports: 1, entries: 1 } }, { $sort: { _id: 1 } }]),
+    agg(tl, [{ $match: { ...T, eventTarget: 'INTERVIEW_SET_CREATE', eventType: 'COMPLETE' } }, { $group: { _id: hourKey, n: { $sum: 1 } } }, { $sort: { _id: 1 } }]),
+    // 진입 채널별 노출→클릭
+    agg(tl, [{ $match: { ...T, eventTarget: { $in: ['INTERVIEW_BANNER', 'INTERVIEW_ENTRY'] } } }, { $group: { _id: { e: '$eventTarget', ch: { $ifNull: ['$metadata.entry', '(미기재)'] } }, n: { $sum: 1 }, u: { $addToSet: WHO } } }, { $project: { n: 1, u: { $size: '$u' } } }]),
+    // 토큰 사용 건 구성 (면접 유형·답변 방식·면접관·세트 종류)
+    agg(tl, [{ $match: { ...T, eventTarget: { $in: ['INTERVIEW_ATTEMPT_START', 'INTERVIEW_SETTING', 'INTERVIEW_SET_CREATE', 'INTERVIEW_ANSWER_SUBMIT'] } } }, { $facet: {
+      type: [{ $match: { eventTarget: 'INTERVIEW_ATTEMPT_START' } }, { $group: { _id: '$metadata.interviewType', n: { $sum: 1 } } }],
+      mode: [{ $match: { eventTarget: 'INTERVIEW_SETTING' } }, { $group: { _id: '$metadata.mode', n: { $sum: 1 } } }],
+      interviewer: [{ $match: { eventTarget: 'INTERVIEW_SETTING' } }, { $group: { _id: '$metadata.interviewer', n: { $sum: 1 } } }],
+      setType: [{ $match: { eventTarget: 'INTERVIEW_SET_CREATE' } }, { $group: { _id: '$metadata.setType', n: { $sum: 1 } } }],
+      answerMode: [{ $match: { eventTarget: 'INTERVIEW_ANSWER_SUBMIT' } }, { $group: { _id: '$metadata.answerMode', n: { $sum: 1 } } }] } }]),
+    // 1인당 토큰 사용 분포
+    agg(tl, [{ $match: { ...T, eventTarget: 'INTERVIEW_SET_CREATE', eventType: 'COMPLETE' } }, { $group: { _id: WHO, n: { $sum: 1 } } }, { $group: { _id: { $cond: [{ $gte: ['$n', 4] }, 4, '$n'] }, users: { $sum: 1 } } }, { $sort: { _id: 1 } }]),
   ]);
-  const pMap = Object.fromEntries(practice.map((r) => [r._id, r.n]));
-  const buckets = new Map();
-  for (const r of referrers) { const k = bucketReferrer(r._id || null); buckets.set(k, (buckets.get(k) || 0) + r.n); }
-  const refs = [...buckets.entries()].map(([name, n]) => ({ name, n })).sort((a, b) => b.n - a.n);
-  const top = refs.slice(0, 10); const rest = refs.slice(10).reduce((s, r) => s + r.n, 0); if (rest) top.push({ name: '기타', n: rest });
-  return { period: `${START} ~ ${until}`, daily: daily.map((r) => ({ ...r, sessions: pMap[r._id] || 0 })),
-    users: users[0] || {}, referrers: top, dwell: { avgMs: dwell[0].avg[0]?.avg || 0, n: dwell[0].avg[0]?.n || 0, buckets: dwell[0].b },
-    linkage: linkage[0] || { iv: 0 } };
+  const ent = {}; for (const r of entry) { const k = r._id.ch; (ent[k] ??= { ch: k, name: IV_ENTRY_KO[k] || k, views: 0, viewUsers: 0, clicks: 0, clickUsers: 0 });
+    if (r._id.e === 'INTERVIEW_BANNER') { ent[k].views = r.n; ent[k].viewUsers = r.u; } else { ent[k].clicks = r.n; ent[k].clickUsers = r.u; } }
+  const m = mix[0]; const lab = (rows, map) => rows.map((r) => ({ name: map[r._id] || r._id || '(미기재)', n: r.n })).sort((a, b) => b.n - a.n);
+  const totals = daily.reduce((a, r) => ({ tokens: a.tokens + r.tokens, done: a.done + r.done, reports: a.reports + r.reports }), { tokens: 0, done: 0, reports: 0 });
+  const hours = {}; for (const r of hourly) { const [d, h] = r._id.split('T'); (hours[d] ??= Array(24).fill(0))[+h] = r.n; }
+  return { since: IV_SINCE, asOf: new Date().toISOString(), people: people[0] || {}, totals, daily, hours,
+    entry: Object.values(ent).sort((a, b) => (b.clicks - a.clicks) || (b.views - a.views)),
+    mix: { type: lab(m.type, IV_TYPE_KO), mode: lab(m.mode, IV_MODE_KO), interviewer: lab(m.interviewer, IV_INTERVIEWER_KO), setType: lab(m.setType, { normal: '일반 세트', follow_up: '꼬리질문 세트' }), answerMode: lab(m.answerMode, IV_MODE_KO) },
+    perUser: perUser.map((r) => ({ name: r._id >= 4 ? '4회 이상' : r._id + '회', n: r.users })) };
 }
 
 // ---- 인재풀 (talent_pool_resume, 2026-10-15~) — 인재 분포. 개인정보 컬렉션이므로:

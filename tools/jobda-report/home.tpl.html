@@ -386,38 +386,34 @@
   </div>
 
   <div class="tabpanel" id="tab-iv">
-  <p class="section-desc" style="margin-top:0">기출 면접 연습(/pass/interview) 기준 · <span id="ivPeriod"></span> 누적. 사람 단위는 로그인=userSn, 비로그인=세션으로 셉니다.</p>
+  <p class="section-desc" style="margin-top:0">커리어보드 AI 면접연습(<code>/career-board?ipStep=…</code>, <span id="ivSince"></span>~) · <b>토큰 사용 기준</b>. 토큰 1개 = 질문세트 생성 성공(면접 시작 클릭 시 1토큰 차감). 원본 로그 기준이라 <b>오늘 데이터까지</b> 포함합니다 (<span id="ivAsOf"></span> 집계). 사람 = 로그인 userSn(비로그인은 세션).</p>
   <div class="kpis" id="ivKpis"></div>
   <div class="grid">
     <div class="card wide">
-      <h3>일별 추이</h3>
-      <p class="desc">면접연습 홈 방문 · 시작 화면 방문 · 실제 연습 건수(연습 번호 유니크)</p>
-      <div class="plot" style="height:260px"><canvas id="cIvDaily"></canvas></div>
+      <h3 id="ivTrendTitle">토큰 사용 추이</h3>
+      <p class="desc" id="ivTrendDesc">토큰 사용(질문세트 생성) · 면접 완료 · 리포트 생성</p>
+      <div class="plot" style="height:240px"><canvas id="cIvDaily"></canvas></div>
       <details class="tbl"><summary>표 보기</summary><div class="scroll" id="tIvDaily"></div></details>
     </div>
     <div class="card">
-      <h3>연습 진행 단계 <span class="tip" data-tip="기간 내 각 화면/행동에 한 번이라도 도달한 사람 수입니다. 단계를 건너뛸 수 있어 엄밀한 순차 퍼널은 아니며, ‘질문 선택 완료’는 연습 생성 API(POST /interview-practices) 성공 시점입니다." tabindex="0">ⓘ</span></h3>
-      <p class="desc">단계별 도달 사람 수 · 직전 단계 대비 전환</p>
+      <h3>토큰 사용까지의 단계 <span class="tip" data-tip="기간 내 각 단계에 한 번이라도 도달한 사람 수. 진입 경로(배너·메뉴·팝업)가 여러 개라 ‘배너 노출’은 참고용이며 엄밀한 순차 퍼널은 아닙니다." tabindex="0">ⓘ</span></h3>
+      <p class="desc">사람 수 · 직전 단계 대비 전환</p>
       <div id="ivFunnel"></div>
     </div>
     <div class="card">
-      <h3>연습 화면 체류 시간</h3>
-      <p class="desc">연습 화면 이탈(LEAVE) 시점의 체류 시간 분포</p>
-      <div class="plot" style="height:250px"><canvas id="cIvDwell"></canvas></div>
-      <details class="tbl"><summary>표 보기</summary><div class="scroll" id="tIvDwell"></div></details>
+      <h3>토큰 사용 이후 <span class="tip" data-tip="토큰 사용 건(질문세트) 기준. 면접 완료=INTERVIEW_SESSION_DONE, 리포트 생성=INTERVIEW_REPORT_CREATE. 한 세트에서 여러 번 응시(재시도)할 수 있습니다." tabindex="0">ⓘ</span></h3>
+      <p class="desc">토큰 1개(질문세트)당 결과</p>
+      <div class="kpis" id="ivAfter" style="grid-template-columns:1fr 1fr;margin-bottom:0"></div>
     </div>
-    <div class="card">
-      <h3>유입 경로</h3>
-      <p class="desc">면접연습 홈·시작 화면 방문의 referrer 기준 (그룹 합산)</p>
-      <div class="plot" style="height:300px"><canvas id="cIvRef"></canvas></div>
-      <details class="tbl"><summary>표 보기</summary><div class="scroll" id="tIvRef"></div></details>
+    <div class="card wide">
+      <h3>진입 경로별 노출 → 클릭</h3>
+      <p class="desc">배너는 노출이 집계되고, 메뉴·팝업 등은 클릭만 집계됩니다 · 클릭률 = 클릭 사람 / 노출 사람</p>
+      <div class="scroll" id="tIvEntry"></div>
     </div>
-    <div class="card">
-      <h3>면접연습 사용자의 다른 기능 이용</h3>
-      <p class="desc">기간 내 면접연습을 방문한 로그인 사용자 중, 같은 기간 해당 기능도 이용한 비율</p>
-      <div class="plot" style="height:220px"><canvas id="cIvLink"></canvas></div>
-      <details class="tbl"><summary>표 보기</summary><div class="scroll" id="tIvLink"></div></details>
-    </div>
+    <div class="card"><h3>면접 유형</h3><p class="desc">응시 시작 기준</p><div class="plot" style="height:180px"><canvas id="cIvType"></canvas></div></div>
+    <div class="card"><h3>답변 방식 · 세트 종류</h3><p class="desc">면접 설정(모드) · 질문세트 종류</p><div class="plot" style="height:180px"><canvas id="cIvMode"></canvas></div></div>
+    <div class="card"><h3>면접관 선택</h3><p class="desc">면접 설정 완료 기준</p><div class="plot" style="height:180px"><canvas id="cIvInterviewer"></canvas></div></div>
+    <div class="card"><h3>1인당 토큰 사용</h3><p class="desc">토큰을 쓴 사람의 사용 횟수 분포</p><div class="plot" style="height:180px"><canvas id="cIvPerUser"></canvas></div></div>
   </div>
   </div>
 
@@ -923,23 +919,32 @@ function featHbar(id, rows, pct, tbl, head){
   if(tbl) $(tbl).innerHTML='<table><thead><tr>'+head.map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr><td>'+r.name+'</td><td>'+(pct?r.v+'%':fmt.format(r.v))+'</td>'+(r.extra!=null?'<td>'+fmt.format(r.extra)+'</td>':'')+'</tr>').join('')+'</tbody></table>';
 }
 function renderIv(){
-  const s1=cssVar('--s1'), s2=cssVar('--s2'), s3=cssVar('--s3'); const u=IV.users||{};
-  $('ivPeriod').textContent=IV.period;
-  const totPractice=IV.daily.reduce((a,r)=>a+r.sessions,0);
+  const s1=cssVar('--s1'), s2=cssVar('--s2'), s3=cssVar('--s3'); const p=IV.people||{}, t=IV.totals||{};
+  $('ivSince').textContent=IV.since; $('ivAsOf').textContent=new Date(IV.asOf).toLocaleString('ko-KR');
   $('ivKpis').innerHTML=
-    tile('면접연습 방문자'+info('기간 내 면접연습 관련 화면을 1번 이상 연 사람 수(로그인=userSn, 비로그인=세션).'),u.any,null,'로그인 '+fmt.format(u.loggedIn||0)+'명')+
-    tile('시작 화면 도달',u.start,null,rate(u.start,u.home)+'% (홈 방문자 대비)')+
-    tile('실제 연습 진행'+info('연습 화면(/pass/interview/practice)에 들어간 사람 수. 연습 건수는 연습 번호(interviewPracticeSn) 유니크.'),u.practice,null,'연습 '+fmt.format(totPractice)+'건')+
-    tile('평균 연습 체류',Math.round((IV.dwell.avgMs||0)/6000)/10,null,'연습 화면 '+fmt.format(IV.dwell.n)+'회 기준','분');
-  const lb=IV.daily.map(r=>shortDay(r._id));
-  featCharts.push(new Chart($('cIvDaily'),{type:'line',data:{labels:lb,datasets:[lineDs('면접연습 홈 방문',IV.daily.map(r=>r.home),s1),lineDs('시작 화면 방문',IV.daily.map(r=>r.start),s2),lineDs('실제 연습(건)',IV.daily.map(r=>r.sessions),s3)]},options:baseOptions()}));
-  table('tIvDaily',['일자','홈 방문','홈 순 사용자','시작 화면','질문 선택 완료','연습(건)','연습 기록 조회'],IV.daily.map(r=>[r._id,r.home,r.homeUsers,r.start,r.select,r.sessions,r.history]));
-  renderFunnel('ivFunnel',[{name:'면접연습 홈 방문',users:u.home||0},{name:'시작 화면 (직무·질문 고르기)',users:u.start||0},{name:'질문 선택 완료 (연습 생성)',users:u.select||0},{name:'연습 화면 진입',users:u.practice||0}]);
-  const DW={0:'30초 미만',30000:'30초–1분',60000:'1–3분',180000:'3–5분',300000:'5–10분',600000:'10분 이상'};
-  featHbar('cIvDwell',IV.dwell.buckets.filter(b=>b._id!==-1).map(b=>({name:DW[b._id]||b._id,v:b.n})),false,'tIvDwell',['체류 시간','이탈 수']);
-  featHbar('cIvRef',IV.referrers.map(r=>({name:r.name,v:r.n})),false,'tIvRef',['유입 경로','방문']);
-  const L=IV.linkage||{}; const pc=k=>L.iv?Math.round(1000*(L[k]||0)/L.iv)/10:0;
-  featHbar('cIvLink',[{name:'역량검사',v:pc('acca'),extra:L.acca},{name:'잡다매칭',v:pc('match'),extra:L.match},{name:'커리어메모리',v:pc('cm'),extra:L.cm},{name:'로켓지원 제출',v:pc('rocket'),extra:L.rocket}],true,'tIvLink',['기능','비율','사용자 수']);
+    tile('토큰 사용'+info('질문세트 생성 성공 건수 = 차감된 토큰 수(세트당 1토큰).'),t.tokens,null,'질문세트 생성 기준','개')+
+    tile('토큰 사용자',p.token,null,'1인당 '+(p.token?(t.tokens/p.token).toFixed(1):'–')+'개','명')+
+    tile('진입 → 토큰 사용',rate(p.token,p.visit),null,fmt.format(p.token||0)+' / '+fmt.format(p.visit||0)+'명 (면접 화면 방문자 대비)','%')+
+    tile('면접 완료 (토큰당)',rate(t.done,t.tokens),null,fmt.format(t.done||0)+' / '+fmt.format(t.tokens||0)+'건','%');
+  const tt=$('ivTrendTitle'), td=$('ivTrendDesc'); const days=Object.keys(IV.hours||{}); const oneDay=IV.daily.filter(r=>r.tokens>0).length<=1 && days.length;
+  if(oneDay){ const d=days[days.length-1]; tt.textContent='토큰 사용 추이 · 시간대별'; td.textContent=d+' · 0~23시(KST) 토큰 사용 건수 — 오픈 첫날이라 시간대로 표시';
+    const o=baseOptions(); o.plugins.legend={display:false};
+    featCharts.push(new Chart($('cIvDaily'),{type:'bar',data:{labels:IV.hours[d].map((_,h)=>h+'시'),datasets:[{label:'토큰 사용',data:IV.hours[d],backgroundColor:s1,borderRadius:3,maxBarThickness:28}]},options:o}));
+  } else {
+    featCharts.push(new Chart($('cIvDaily'),{type:'line',data:{labels:IV.daily.map(r=>shortDay(r._id)),datasets:[lineDs('토큰 사용',IV.daily.map(r=>r.tokens),s1),lineDs('면접 완료',IV.daily.map(r=>r.done),s2),lineDs('리포트 생성',IV.daily.map(r=>r.reports),s3)]},options:baseOptions()}));
+  }
+  table('tIvDaily',['일자','진입 클릭','토큰 사용','토큰 사용자','면접 완료','리포트 생성'],IV.daily.map(r=>[r._id,r.entries,r.tokens,r.tokenUsers,r.done,r.reports]));
+  renderFunnel('ivFunnel',[{name:'진입 클릭 (배너·메뉴 등)',users:p.click||0},{name:'면접 화면 방문',users:p.visit||0},{name:'면접 설정 완료',users:p.setting||0},{name:'토큰 사용 (질문세트 생성)',users:p.token||0},{name:'답변 제출',users:p.answer||0},{name:'면접 완료',users:p.done||0},{name:'리포트 조회',users:p.report||0}]);
+  $('ivAfter').innerHTML=
+    tile('면접 완료',rate(t.done,t.tokens),null,fmt.format(t.done||0)+'건','%')+
+    tile('리포트 생성',rate(t.reports,t.tokens),null,fmt.format(t.reports||0)+'건','%')+
+    tile('리포트 조회한 사람',rate(p.report,p.token),null,fmt.format(p.report||0)+' / '+fmt.format(p.token||0)+'명','%')+
+    tile('커리어메모리 연동',rate(p.memory,p.token),null,fmt.format(p.memory||0)+'명 (면접 결과 자동 저장)','%');
+  $('tIvEntry').innerHTML='<table><thead><tr><th>진입 경로</th><th>노출(사람)</th><th>클릭(사람)</th><th>클릭률</th></tr></thead><tbody>'+IV.entry.map(e=>'<tr><td>'+esc(e.name)+'</td><td>'+(e.viewUsers?fmt.format(e.viewUsers):'—')+'</td><td>'+fmt.format(e.clickUsers)+'</td><td>'+(e.viewUsers?rate(e.clickUsers,e.viewUsers)+'%':'—')+'</td></tr>').join('')+'</tbody></table>';
+  const v=(rows)=>rows.map(r=>({name:r.name,v:r.n}));
+  featHbar('cIvType',v(IV.mix.type));
+  featHbar('cIvMode',[...IV.mix.mode.map(r=>({name:'설정 · '+r.name,v:r.n})),...IV.mix.setType.map(r=>({name:'세트 · '+r.name,v:r.n}))]);
+  featHbar('cIvInterviewer',v(IV.mix.interviewer)); featHbar('cIvPerUser',v(IV.perUser));
 }
 function renderTp(){
   $('tpSince').textContent=TP.since;

@@ -347,7 +347,7 @@ ${latest ? `<a class="latest" href="${WEB}/${latest}/">최신 리포트 (${lates
   const homeSubmits = { period: `${START} ~ ${latestDay}`, total: homeRows.reduce((s, r) => s + r.count, 0), note: SUBNOTE, rows: homeRows };
   const windowUsers = await computeWindowUsers(db, latestDay);
   const hourly = await buildHourly(db);
-  const [interview, talentPool] = await Promise.all([buildInterview(db, latestDay, bucketReferrer), buildTalentPool(db)]);
+  const [interview, talentPool] = await Promise.all([buildInterview(db), buildTalentPool(db)]);
   const byId = (arr, k) => Object.fromEntries(arr.map((r) => [r._id, r[k]]));
   const uMap = byId(homeDash.dailyUsers, 'users'), sMap = byId(homeDash.dailySessions, 'sessions'), qMap = byId(homeDash.dailySearches, 'searches');
   const signMap = {}; for (const r of homeDash.authDaily) if (r._id.kind === 'signup') signMap[r._id.d] = (signMap[r._id.d] || 0) + r.n;
@@ -364,7 +364,7 @@ ${latest ? `<a class="latest" href="${WEB}/${latest}/">최신 리포트 (${lates
     .replace('__TALENT__', () => noLt(JSON.stringify(talentPool)));
   const homeDoc = `<!DOCTYPE html>\n<html lang="ko" data-theme="dark">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<meta name="robots" content="noindex">\n</head>\n<body>\n${homeOut}\n</body>\n</html>\n`;
   fs.writeFileSync(path.join(REPO, 'index.html'), homeDoc); // 사이트 루트 = HOME
-  console.log('면접연습 사용자', interview.users.any, '· 인재풀', talentPool.users, '명', talentPool.gated ? '(분포 비공개: 5명 미만)' : '');
+  console.log('면접연습 토큰 사용', interview.totals.tokens, '· 인재풀', talentPool.users, '명', talentPool.gated ? '(분포 비공개: 5명 미만)' : '');
   console.log('HOME 생성 · latest', latestDay, '· 구간사용자', JSON.stringify(windowUsers));
 
   await client.close();
