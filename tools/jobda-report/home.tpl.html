@@ -229,6 +229,8 @@
     <a href="#" data-t="cm">커리어메모리</a>
     <a href="#" data-t="rocket">로켓지원</a>
     <a href="#" data-t="flow">페이지 이동 경로</a>
+    <a href="#" data-t="iv">면접연습</a>
+    <a href="#" data-t="tp" hidden>인재풀</a>
   </nav>
   <div class="tabpanel" id="tab-overview">
 
@@ -381,6 +383,58 @@
     <details class="tbl"><summary>표 보기 (이동량·전환율·연관도)</summary><div class="scroll" id="tHomeNet"></div></details>
   </div>
 
+  </div>
+
+  <div class="tabpanel" id="tab-iv">
+  <p class="section-desc" style="margin-top:0">기출 면접 연습(/pass/interview) 기준 · <span id="ivPeriod"></span> 누적. 사람 단위는 로그인=userSn, 비로그인=세션으로 셉니다.</p>
+  <div class="kpis" id="ivKpis"></div>
+  <div class="grid">
+    <div class="card wide">
+      <h3>일별 추이</h3>
+      <p class="desc">면접연습 홈 방문 · 시작 화면 방문 · 실제 연습 건수(연습 번호 유니크)</p>
+      <div class="plot" style="height:260px"><canvas id="cIvDaily"></canvas></div>
+      <details class="tbl"><summary>표 보기</summary><div class="scroll" id="tIvDaily"></div></details>
+    </div>
+    <div class="card">
+      <h3>연습 진행 단계 <span class="tip" data-tip="기간 내 각 화면/행동에 한 번이라도 도달한 사람 수입니다. 단계를 건너뛸 수 있어 엄밀한 순차 퍼널은 아니며, ‘질문 선택 완료’는 연습 생성 API(POST /interview-practices) 성공 시점입니다." tabindex="0">ⓘ</span></h3>
+      <p class="desc">단계별 도달 사람 수 · 직전 단계 대비 전환</p>
+      <div id="ivFunnel"></div>
+    </div>
+    <div class="card">
+      <h3>연습 화면 체류 시간</h3>
+      <p class="desc">연습 화면 이탈(LEAVE) 시점의 체류 시간 분포</p>
+      <div class="plot" style="height:250px"><canvas id="cIvDwell"></canvas></div>
+      <details class="tbl"><summary>표 보기</summary><div class="scroll" id="tIvDwell"></div></details>
+    </div>
+    <div class="card">
+      <h3>유입 경로</h3>
+      <p class="desc">면접연습 홈·시작 화면 방문의 referrer 기준 (그룹 합산)</p>
+      <div class="plot" style="height:300px"><canvas id="cIvRef"></canvas></div>
+      <details class="tbl"><summary>표 보기</summary><div class="scroll" id="tIvRef"></div></details>
+    </div>
+    <div class="card">
+      <h3>면접연습 사용자의 다른 기능 이용</h3>
+      <p class="desc">기간 내 면접연습을 방문한 로그인 사용자 중, 같은 기간 해당 기능도 이용한 비율</p>
+      <div class="plot" style="height:220px"><canvas id="cIvLink"></canvas></div>
+      <details class="tbl"><summary>표 보기</summary><div class="scroll" id="tIvLink"></div></details>
+    </div>
+  </div>
+  </div>
+
+  <div class="tabpanel" id="tab-tp">
+  <p class="section-desc" style="margin-top:0">인재풀(talent_pool_resume, <span id="tpSince"></span> 오픈)에 등록된 인재 분포. 한 사람당 최신 확정 이력서 1건 기준이며 <b>집계값만</b> 담습니다 — 5명 미만 항목은 ‘기타’로 합치고, 학교·회사명·인적사항·병역 정보는 집계하지 않습니다.</p>
+  <div class="kpis" id="tpKpis"></div>
+  <div id="tpGate" class="card wide" hidden style="text-align:center;padding:36px 20px"></div>
+  <div class="grid" id="tpGrid">
+    <div class="card"><h3>최종 학력</h3><p class="desc">가장 높은 학력 기준</p><div class="plot" style="height:220px"><canvas id="cTpEdu"></canvas></div></div>
+    <div class="card"><h3>경력 연차</h3><p class="desc">정규직 경력 합산 (인턴 제외)</p><div class="plot" style="height:220px"><canvas id="cTpCareer"></canvas></div></div>
+    <div class="card"><h3>학적 상태</h3><p class="desc">기재된 학력의 졸업·재학·휴학 (사람 수)</p><div class="plot" style="height:200px"><canvas id="cTpStatus"></canvas></div></div>
+    <div class="card"><h3>항목 보유율</h3><p class="desc">해당 항목을 1개 이상 기재한 인재 비율</p><div class="plot" style="height:200px"><canvas id="cTpHold"></canvas></div></div>
+    <div class="card"><h3>직무 (경력 기준) Top</h3><p class="desc">경력에 기재된 직무명</p><div class="plot" style="height:300px"><canvas id="cTpJob"></canvas></div></div>
+    <div class="card"><h3>보유 스킬 Top</h3><p class="desc">스킬 보유 인재 수</p><div class="plot" style="height:300px"><canvas id="cTpSkill"></canvas></div></div>
+    <div class="card"><h3>자격증 Top</h3><p class="desc">자격증 보유 인재 수</p><div class="plot" style="height:260px"><canvas id="cTpLic"></canvas></div></div>
+    <div class="card"><h3>어학 시험 · 외국어</h3><p class="desc">시험 응시 / 외국어 기재 인재 수</p><div class="plot" style="height:260px"><canvas id="cTpLang"></canvas></div></div>
+  </div>
   </div>
 
   <footer>
@@ -750,6 +804,8 @@ function renderSubmits() {
 
 const HOME = __HOME__;
 const FLOWS = __FLOWS__;
+const IV = __INTERVIEW__;
+const TP = __TALENT__;
 const DATA_START = '2026-08-27';
 let homeCharts = [];
 const _tt = document.getElementById('tooltip');
@@ -805,10 +861,10 @@ function renderHome(userAction){
   bindTips();
 }
 // 탭
-function showTab(t){ ['overview','cm','rocket','flow'].forEach(x=>{ const el=document.getElementById('tab-'+x); if(el) el.hidden=(x!==t); });
+function showTab(t){ ['overview','cm','rocket','flow','iv','tp'].forEach(x=>{ const el=document.getElementById('tab-'+x); if(el) el.hidden=(x!==t); });
   if(t==='flow') renderNet();
   document.querySelectorAll('#subtabs a').forEach(a=>a.classList.toggle('active',a.dataset.t===t));
-  setTimeout(()=>{ try{charts.forEach(c=>c.resize());}catch(e){} },10); }
+  setTimeout(()=>{ try{charts.concat(featCharts).forEach(c=>c.resize());}catch(e){} },10); }
 // 네트워크
 const NET_GROUPS=['홈','로그인/가입','공고 탐색','역량검사','매칭','커리어메모리','마이페이지','콘텐츠'];
 let homeEdgeMode='width', netMetric='count', netPick=null, netPinned=null;
@@ -854,6 +910,50 @@ function renderNet(){
   { const rs=FLOWS.edges.filter(e=>pick.has(e.from)&&pick.has(e.to)).slice(0,40);
     document.getElementById('tHomeNet').innerHTML='<table><thead><tr><th>이동 경로</th><th>이동량</th><th>전환율</th><th>연관도</th></tr></thead><tbody>'+rs.map(e=>{const p=e.n/(st.outF[e.from]||1),lf=p/((st.inT[e.to]||1)/(st.tot||1));return '<tr><td>'+e.from+' → '+e.to+'</td><td>'+fmt.format(e.n)+'</td><td>'+(p*100).toFixed(1)+'%</td><td>'+lf.toFixed(2)+'×</td></tr>';}).join('')+'</tbody></table>'; }
 }
+
+// ===== 면접연습 · 인재풀 탭
+let featCharts = [];
+function featHbar(id, rows, pct, tbl, head){
+  if(!$(id)) return;
+  const o=baseOptions(); o.indexAxis='y'; o.plugins.legend={display:false}; o.interaction={mode:'nearest',intersect:false};
+  o.scales={x:{beginAtZero:true,max:pct?100:undefined,grid:{color:cssVar('--grid'),drawTicks:false},border:{display:false},ticks:{color:cssVar('--muted'),font:{size:11},callback:v=>pct?v+'%':fmt.format(v)}},
+            y:{grid:{display:false},border:{color:cssVar('--baseline')},ticks:{color:cssVar('--ink-2'),autoSkip:false}}};
+  if(!rows.length){ $(id).parentNode.innerHTML='<div class="desc" style="padding:30px 0;text-align:center">표시할 항목 없음 (5명 미만 항목은 비공개)</div>'; return; }
+  featCharts.push(new Chart($(id),{type:'bar',data:{labels:rows.map(r=>r.name),datasets:[{data:rows.map(r=>r.v),backgroundColor:cssVar('--s1'),borderRadius:4,maxBarThickness:18}]},options:o}));
+  if(tbl) $(tbl).innerHTML='<table><thead><tr>'+head.map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr><td>'+r.name+'</td><td>'+(pct?r.v+'%':fmt.format(r.v))+'</td>'+(r.extra!=null?'<td>'+fmt.format(r.extra)+'</td>':'')+'</tr>').join('')+'</tbody></table>';
+}
+function renderIv(){
+  const s1=cssVar('--s1'), s2=cssVar('--s2'), s3=cssVar('--s3'); const u=IV.users||{};
+  $('ivPeriod').textContent=IV.period;
+  const totPractice=IV.daily.reduce((a,r)=>a+r.sessions,0);
+  $('ivKpis').innerHTML=
+    tile('면접연습 방문자'+info('기간 내 면접연습 관련 화면을 1번 이상 연 사람 수(로그인=userSn, 비로그인=세션).'),u.any,null,'로그인 '+fmt.format(u.loggedIn||0)+'명')+
+    tile('시작 화면 도달',u.start,null,rate(u.start,u.home)+'% (홈 방문자 대비)')+
+    tile('실제 연습 진행'+info('연습 화면(/pass/interview/practice)에 들어간 사람 수. 연습 건수는 연습 번호(interviewPracticeSn) 유니크.'),u.practice,null,'연습 '+fmt.format(totPractice)+'건')+
+    tile('평균 연습 체류',Math.round((IV.dwell.avgMs||0)/6000)/10,null,'연습 화면 '+fmt.format(IV.dwell.n)+'회 기준','분');
+  const lb=IV.daily.map(r=>shortDay(r._id));
+  featCharts.push(new Chart($('cIvDaily'),{type:'line',data:{labels:lb,datasets:[lineDs('면접연습 홈 방문',IV.daily.map(r=>r.home),s1),lineDs('시작 화면 방문',IV.daily.map(r=>r.start),s2),lineDs('실제 연습(건)',IV.daily.map(r=>r.sessions),s3)]},options:baseOptions()}));
+  table('tIvDaily',['일자','홈 방문','홈 순 사용자','시작 화면','질문 선택 완료','연습(건)','연습 기록 조회'],IV.daily.map(r=>[r._id,r.home,r.homeUsers,r.start,r.select,r.sessions,r.history]));
+  renderFunnel('ivFunnel',[{name:'면접연습 홈 방문',users:u.home||0},{name:'시작 화면 (직무·질문 고르기)',users:u.start||0},{name:'질문 선택 완료 (연습 생성)',users:u.select||0},{name:'연습 화면 진입',users:u.practice||0}]);
+  const DW={0:'30초 미만',30000:'30초–1분',60000:'1–3분',180000:'3–5분',300000:'5–10분',600000:'10분 이상'};
+  featHbar('cIvDwell',IV.dwell.buckets.filter(b=>b._id!==-1).map(b=>({name:DW[b._id]||b._id,v:b.n})),false,'tIvDwell',['체류 시간','이탈 수']);
+  featHbar('cIvRef',IV.referrers.map(r=>({name:r.name,v:r.n})),false,'tIvRef',['유입 경로','방문']);
+  const L=IV.linkage||{}; const pc=k=>L.iv?Math.round(1000*(L[k]||0)/L.iv)/10:0;
+  featHbar('cIvLink',[{name:'역량검사',v:pc('acca'),extra:L.acca},{name:'잡다매칭',v:pc('match'),extra:L.match},{name:'커리어메모리',v:pc('cm'),extra:L.cm},{name:'로켓지원 제출',v:pc('rocket'),extra:L.rocket}],true,'tIvLink',['기능','비율','사용자 수']);
+}
+function renderTp(){
+  $('tpSince').textContent=TP.since;
+  $('tpKpis').innerHTML=tile('등록 인재',TP.users,null,'사람 수 (중복 제거)','명')+tile('등록 이력서',TP.docs,null,'확정 문서 수','건')+tile('연결 공고',TP.positions,null,'포지션 수','개');
+  $('tpGate').hidden=!TP.gated; $('tpGrid').hidden=!!TP.gated;
+  if(TP.gated){ $('tpGate').innerHTML='<div style="font-size:15px;font-weight:700;margin-bottom:6px">분포는 등록 인재 '+TP.kMin+'명 이상부터 공개됩니다</div><div class="desc" style="margin:0">현재 '+fmt.format(TP.users)+'명 — 소수 인원의 분포는 사실상 개인 이력서가 드러나므로 표시하지 않습니다. 인재가 쌓이면 다음 업데이트부터 자동으로 채워집니다.</div>'; return; }
+  const v=(rows)=>rows.map(r=>({name:r.name,v:r.n}));
+  featHbar('cTpEdu',v(TP.edu)); featHbar('cTpCareer',v(TP.career)); featHbar('cTpStatus',v(TP.eduStatus));
+  const HK={careers:'경력',skills:'스킬',licenses:'자격증',langExams:'어학 시험',projects:'프로젝트',activities:'대외활동·수상',attachments:'첨부파일'};
+  featHbar('cTpHold',TP.holding.filter(h=>h.n!=null&&h.of).map(h=>({name:HK[h.key],v:Math.round(1000*h.n/h.of)/10})),true);
+  featHbar('cTpJob',v(TP.jobTitle)); featHbar('cTpSkill',v(TP.skills)); featHbar('cTpLic',v(TP.licenses));
+  featHbar('cTpLang',[...TP.langExams.map(r=>({name:'시험 · '+r.name,v:r.n})),...TP.languages.map(r=>({name:'외국어 · '+r.name,v:r.n}))]);
+}
+function renderFeat(){ featCharts.forEach(c=>c.destroy()); featCharts=[]; renderIv(); renderTp(); bindTips(); }
 function homeInit(){
   document.getElementById('homeN').value=hstate.n; document.getElementById('homeN').max=_allD.length;
   const fi=document.getElementById('homeFrom'),ti=document.getElementById('homeTo'); fi.min=_minD; fi.max=_maxD; ti.min=_minD; ti.max=_maxD; fi.value=_maxD; ti.value=_maxD;
@@ -872,8 +972,9 @@ homeInit();
 renderHome(false);
 hNetPick();
 renderNet();
+renderFeat();
 bindTips();
 showTab("overview");
-matchMedia('(prefers-color-scheme: dark)').addEventListener('change', ()=>{render();renderHome(false);renderNet();});
-new MutationObserver(()=>{render();renderHome(false);renderNet();}).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', ()=>{render();renderHome(false);renderNet();renderFeat();});
+new MutationObserver(()=>{render();renderHome(false);renderNet();renderFeat();}).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 </script>
