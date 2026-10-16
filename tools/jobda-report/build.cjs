@@ -186,8 +186,13 @@ async function buildCampaigns(col, since) {
 }
 
 // ---- 페이지 이동 경로 (세션 내 연속 VISIT) — 커리어메모리·로켓 중심 네트워크용
+// 면접연습은 routeName이 따로 없고 커리어보드(CAREER_BOARD) 중 feature=INTERVIEW 방문이라 가상 라우트로 분리
+const IV_ROUTE = 'CAREER_BOARD_INTERVIEW';
+const IV_FLOW_SINCE = '2026-10-13';   // 면접연습 출시일 (features.cjs IV_SINCE와 동일)
+const ROUTE_KEY = { $cond: [{ $and: [{ $eq: ['$routeName', 'CAREER_BOARD'] }, { $eq: ['$feature', 'INTERVIEW'] }] }, IV_ROUTE, '$routeName'] };
 function routeGroup(r) {
   if (!r) return '기타';
+  if (r === IV_ROUTE) return '면접연습';
   if (r.startsWith('ACCA') || r.startsWith('ACC_') || r.startsWith('PHS')) return '역량검사';
   if (r.startsWith('POSITION') || r.startsWith('JOBS') || r.startsWith('COMPANY') || r === 'CALENDAR') return '공고 탐색';
   if (r.startsWith('MATCH')) return '매칭';
@@ -207,17 +212,30 @@ async function buildFlows(db) {
     { $unwind: '$pairs' }, { $match: { $expr: { $ne: ['$pairs.f', '$pairs.t'] } } },
     { $group: { _id: { f: '$pairs.f', t: '$pairs.t' }, n: { $sum: 1 } } },
   ];
-  const [fr, routeVisits] = await Promise.all([
-    agg(trackingLog, [{ $match: { eventType: 'VISIT' } }, { $sort: { sessionId: 1, timestamp: 1 } }, { $group: { _id: '$sessionId', routes: { $push: '$routeName' } } },
+  const ivSince = new Date(IV_FLOW_SINCE + 'T00:00:00+09:00');
+  const hasIv = { $or: [{ '_id.f': IV_ROUTE }, { '_id.t': IV_ROUTE }] };
+  const [fr, routeVisits, ivVisits] = await Promise.all([
+    agg(trackingLog, [{ $match: { eventType: 'VISIT' } }, { $sort: { sessionId: 1, timestamp: 1 } }, { $group: { _id: '$sessionId', routes: { $push: ROUTE_KEY }, start: { $min: '$timestamp' } } },
       { $facet: {
-        pairs: [...PAIR, { $sort: { n: -1 } }, { $limit: 1200 }],
+        pairs: [...PAIR, { $match: { $nor: [hasIv] } }, { $sort: { n: -1 } }, { $limit: 1200 }],
+        // 면접연습은 규모가 작아 상위 1200 컷에서 빠지므로 별도로 전량 집계
+        iv: [...PAIR, { $match: hasIv }],
+        // 출시 이후 세션만 — 면접연습 유입·유출 전환율의 분모를 같은 기간으로 맞춘다
+        ivPairs: [{ $match: { start: { $gte: ivSince } } }, ...PAIR],
+        ivExits: [{ $match: { start: { $gte: ivSince } } }, { $project: { last: { $arrayElemAt: ['$routes', -1] } } }, { $group: { _id: '$last', n: { $sum: 1 } } }],
         cm: [...PAIR, { $match: { $or: [{ '_id.f': { $regex: '^CAREER_MEMORY' } }, { '_id.t': { $regex: '^CAREER_MEMORY' } }] } }, { $sort: { n: -1 } }, { $limit: 300 }],
         exits: [{ $project: { last: { $arrayElemAt: ['$routes', -1] } } }, { $group: { _id: '$last', n: { $sum: 1 } } }, { $sort: { n: -1 } }],
         routeSessions: [{ $unwind: '$routes' }, { $group: { _id: { s: '$_id', r: '$routes' } } }, { $group: { _id: '$_id.r', sessions: { $sum: 1 } } }],
       } }]),
     agg(dailyStat, [{ $match: { eventType: 'VISIT' } }, { $group: { _id: '$routeName', visits: { $sum: '$count' } } }]),
+    // daily_stat에는 면접연습(feature=INTERVIEW) 구분이 없어 원본 로그에서 센다
+    agg(trackingLog, [{ $match: { eventType: 'VISIT', routeName: 'CAREER_BOARD', feature: 'INTERVIEW' } }, { $count: 'n' }]),
   ]);
-  const rawPairs = fr[0].pairs, cmPairs = fr[0].cm, exitsRaw = fr[0].exits;
+  const ivN = ivVisits[0]?.n || 0;
+  const cb = routeVisits.find((r) => r._id === 'CAREER_BOARD');
+  if (cb) cb.visits = Math.max(0, cb.visits - ivN);
+  if (ivN) routeVisits.push({ _id: IV_ROUTE, visits: ivN });
+  const rawPairs = fr[0].pairs.concat(fr[0].iv), cmPairs = fr[0].cm, exitsRaw = fr[0].exits;
   const routeSessions = new Map(fr[0].routeSessions.map((r) => [r._id, r.sessions]));
   const isCm = (r) => typeof r === 'string' && r.startsWith('CAREER_MEMORY');
   const inflow = new Map(), outflow = new Map();
@@ -234,7 +252,25 @@ async function buildFlows(db) {
   const topSet = new Set(topPages.map((p) => p.name));
   const routeEdges = rawPairs.filter((p) => topSet.has(p._id.f) && topSet.has(p._id.t)).map((p) => ({ from: p._id.f, to: p._id.t, n: p.n }));
   const exits = exitsRaw.filter((r) => r._id).map((r) => ({ name: r._id, exits: r.n, sessions: routeSessions.get(r._id) || r.n, exitRate: routeSessions.get(r._id) ? +(100 * r.n / routeSessions.get(r._id)).toFixed(1) : null }));
-  return { generatedAt: new Date().toISOString(), nodes, edges, cmFlows: { inflow: toSorted(inflow), outflow: toSorted(outflow) }, topPages, routeEdges, exits };
+  return { generatedAt: new Date().toISOString(), nodes, edges, cmFlows: { inflow: toSorted(inflow), outflow: toSorted(outflow) }, topPages, routeEdges, exits,
+    ivFlows: buildIvFlows(fr[0].ivPairs, fr[0].ivExits) };
+}
+// 면접연습 기준 유입·유출 (출시 이후 세션). 그룹 단위, 같은 그룹 안 이동은 제외 — 네트워크 그래프와 같은 정의
+//  유입 전환율 = A에서 다른 페이지로 나간 이동 중 면접연습으로 간 비율
+//  유출 비중   = 면접연습에서 떠난 것(다른 페이지 이동 + 세션 종료) 중 각 행선지 비율
+function buildIvFlows(pairs, exitRows) {
+  const G = '면접연습', outOf = new Map(), inbound = new Map(), outbound = new Map();
+  for (const p of pairs) { const f = routeGroup(p._id.f), t = routeGroup(p._id.t); if (f === t) continue;
+    outOf.set(f, (outOf.get(f) || 0) + p.n);
+    if (t === G) inbound.set(f, (inbound.get(f) || 0) + p.n);
+    if (f === G) outbound.set(t, (outbound.get(t) || 0) + p.n); }
+  const exits = exitRows.filter((r) => routeGroup(r._id) === G).reduce((s, r) => s + r.n, 0);
+  const leave = (outOf.get(G) || 0) + exits;
+  const pct = (a, b) => (b ? +(100 * a / b).toFixed(2) : null);
+  return { since: IV_FLOW_SINCE,
+    inbound: [...inbound.entries()].map(([name, n]) => ({ name, n, out: outOf.get(name) || 0, rate: pct(n, outOf.get(name)) })).sort((a, b) => b.n - a.n),
+    outbound: [...outbound.entries(), ['세션 종료(이탈)', exits]].filter(([, n]) => n > 0).map(([name, n]) => ({ name, n, rate: pct(n, leave) })).sort((a, b) => b.n - a.n),
+    totalIn: [...inbound.values()].reduce((s, n) => s + n, 0), leave, exits };
 }
 // 구간별 distinct 순 사용자 (프리셋 lookback 창) — 최신일 기준
 async function computeWindowUsers(db, latest) {
