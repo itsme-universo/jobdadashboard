@@ -185,53 +185,72 @@ async function buildCampaigns(col, since) {
   return { generatedAt: new Date().toISOString(), since, campaigns };
 }
 
-// ---- 페이지 이동 경로 (세션 내 연속 VISIT) — 커리어메모리·로켓 중심 네트워크용
+// ---- 페이지 이동 경로 (세션 내 연속 VISIT) — 커리어메모리·로켓·면접연습 동선 네트워크용
 // 면접연습은 routeName이 따로 없고 커리어보드(CAREER_BOARD) 중 feature=INTERVIEW 방문이라 가상 라우트로 분리
 const IV_ROUTE = 'CAREER_BOARD_INTERVIEW';
-const IV_FLOW_SINCE = '2026-10-13';   // 면접연습 출시일 (features.cjs IV_SINCE와 동일)
 const ROUTE_KEY = { $cond: [{ $and: [{ $eq: ['$routeName', 'CAREER_BOARD'] }, { $eq: ['$feature', 'INTERVIEW'] }] }, IV_ROUTE, '$routeName'] };
+// 페이지 그룹 규칙 — JS(routeGroup)와 Mongo 식(groupExpr)이 같은 표를 쓴다. 위에서부터 먼저 맞는 규칙 적용
+const GROUP_RULES = [
+  ['면접연습', { eq: [IV_ROUTE] }],
+  ['역량검사', { pre: ['ACCA', 'ACC_', 'PHS'] }],
+  ['공고 탐색', { pre: ['POSITION', 'JOBS', 'COMPANY'], eq: ['CALENDAR'] }],
+  ['매칭', { pre: ['MATCH'] }],
+  ['커리어메모리', { pre: ['CAREER_MEMORY'] }],
+  ['마이페이지', { pre: ['MYPAGE'], eq: ['PROFILE'] }],
+  ['홈', { eq: ['HOME'] }],
+  ['로그인/가입', { pre: ['JOIN', 'OAUTH2'], has: ['LOGIN'] }],
+  ['콘텐츠', { pre: ['INFO', 'CONTENT'] }],
+  ['면접', { pre: ['INTERVIEW'] }],
+];
 function routeGroup(r) {
   if (!r) return '기타';
-  if (r === IV_ROUTE) return '면접연습';
-  if (r.startsWith('ACCA') || r.startsWith('ACC_') || r.startsWith('PHS')) return '역량검사';
-  if (r.startsWith('POSITION') || r.startsWith('JOBS') || r.startsWith('COMPANY') || r === 'CALENDAR') return '공고 탐색';
-  if (r.startsWith('MATCH')) return '매칭';
-  if (r.startsWith('CAREER_MEMORY')) return '커리어메모리';
-  if (r.startsWith('MYPAGE') || r === 'PROFILE') return '마이페이지';
-  if (r === 'HOME') return '홈';
-  if (r.startsWith('JOIN') || r.startsWith('OAUTH2') || r.includes('LOGIN')) return '로그인/가입';
-  if (r.startsWith('INFO') || r.startsWith('CONTENT')) return '콘텐츠';
-  if (r.startsWith('INTERVIEW')) return '면접';
+  for (const [g, m] of GROUP_RULES)
+    if ((m.eq || []).includes(r) || (m.pre || []).some((p) => r.startsWith(p)) || (m.has || []).some((s) => r.includes(s))) return g;
   return '기타';
+}
+function groupExpr(field) {
+  const r = { $ifNull: [field, ''] };
+  return { $switch: { default: '기타', branches: GROUP_RULES.map(([g, m]) => ({ then: g, case: { $or: [
+    ...(m.eq || []).map((v) => ({ $eq: [r, v] })),
+    ...(m.pre || []).map((p) => ({ $eq: [{ $indexOfCP: [r, p] }, 0] })),
+    ...(m.has || []).map((s) => ({ $gte: [{ $indexOfCP: [r, s] }, 0] })),
+  ] } })) } };
 }
 async function buildFlows(db) {
   const trackingLog = db.collection('tracking_log'), dailyStat = db.collection('tracking_daily_stat');
   const agg = (col, p) => col.aggregate(p, { allowDiskUse: true }).toArray();
+  const pairsOf = (arr) => ({ $map: { input: { $range: [0, { $max: [0, { $subtract: [{ $size: arr }, 1] }] }] }, as: 'i', in: { f: { $arrayElemAt: [arr, '$$i'] }, t: { $arrayElemAt: [arr, { $add: ['$$i', 1] }] } } } });
   const PAIR = [
-    { $project: { pairs: { $map: { input: { $range: [0, { $max: [0, { $subtract: [{ $size: '$routes' }, 1] }] }] }, as: 'i', in: { f: { $arrayElemAt: ['$routes', '$$i'] }, t: { $arrayElemAt: ['$routes', { $add: ['$$i', 1] }] } } } } } },
+    { $project: { pairs: pairsOf('$routes') } },
     { $unwind: '$pairs' }, { $match: { $expr: { $ne: ['$pairs.f', '$pairs.t'] } } },
     { $group: { _id: { f: '$pairs.f', t: '$pairs.t' }, n: { $sum: 1 } } },
   ];
-  const ivSince = new Date(IV_FLOW_SINCE + 'T00:00:00+09:00');
+  // 일별(세션 시작일 KST) · 그룹 단위 — 화면의 날짜 필터가 이 값을 합산한다. 그룹으로 미리 묶어 facet 16MB 한도를 피함
+  const DAY_PAIR = [
+    { $project: { d: kstDay('$start'), groups: { $map: { input: '$routes', in: groupExpr('$$this') } } } },
+    { $project: { d: 1, pairs: pairsOf('$groups') } },
+    { $unwind: '$pairs' }, { $match: { $expr: { $ne: ['$pairs.f', '$pairs.t'] } } },
+    { $group: { _id: { d: '$d', f: '$pairs.f', t: '$pairs.t' }, n: { $sum: 1 } } },
+  ];
   const hasIv = { $or: [{ '_id.f': IV_ROUTE }, { '_id.t': IV_ROUTE }] };
-  const [fr, routeVisits, ivVisits] = await Promise.all([
+  const [fr, routeVisits, ivVisits, dayVisits] = await Promise.all([
     agg(trackingLog, [{ $match: { eventType: 'VISIT' } }, { $sort: { sessionId: 1, timestamp: 1 } }, { $group: { _id: '$sessionId', routes: { $push: ROUTE_KEY }, start: { $min: '$timestamp' } } },
       { $facet: {
         pairs: [...PAIR, { $match: { $nor: [hasIv] } }, { $sort: { n: -1 } }, { $limit: 1200 }],
         // 면접연습은 규모가 작아 상위 1200 컷에서 빠지므로 별도로 전량 집계
         iv: [...PAIR, { $match: hasIv }],
-        // 출시 이후 세션만 — 면접연습 유입·유출 전환율의 분모를 같은 기간으로 맞춘다
-        ivPairs: [{ $match: { start: { $gte: ivSince } } }, ...PAIR],
-        ivExits: [{ $match: { start: { $gte: ivSince } } }, { $project: { last: { $arrayElemAt: ['$routes', -1] } } }, { $group: { _id: '$last', n: { $sum: 1 } } }],
+        dayPairs: DAY_PAIR,
+        dayExits: [{ $project: { d: kstDay('$start'), last: groupExpr({ $arrayElemAt: ['$routes', -1] }) } }, { $group: { _id: { d: '$d', g: '$last' }, n: { $sum: 1 } } }],
         cm: [...PAIR, { $match: { $or: [{ '_id.f': { $regex: '^CAREER_MEMORY' } }, { '_id.t': { $regex: '^CAREER_MEMORY' } }] } }, { $sort: { n: -1 } }, { $limit: 300 }],
         exits: [{ $project: { last: { $arrayElemAt: ['$routes', -1] } } }, { $group: { _id: '$last', n: { $sum: 1 } } }, { $sort: { n: -1 } }],
         routeSessions: [{ $unwind: '$routes' }, { $group: { _id: { s: '$_id', r: '$routes' } } }, { $group: { _id: '$_id.r', sessions: { $sum: 1 } } }],
       } }]),
     agg(dailyStat, [{ $match: { eventType: 'VISIT' } }, { $group: { _id: '$routeName', visits: { $sum: '$count' } } }]),
-    // daily_stat에는 면접연습(feature=INTERVIEW) 구분이 없어 원본 로그에서 센다
-    agg(trackingLog, [{ $match: { eventType: 'VISIT', routeName: 'CAREER_BOARD', feature: 'INTERVIEW' } }, { $count: 'n' }]),
+    // daily_stat에는 면접연습(feature=INTERVIEW) 구분이 없어 원본 로그에서 센다 (일별)
+    agg(trackingLog, [{ $match: { eventType: 'VISIT', routeName: 'CAREER_BOARD', feature: 'INTERVIEW' } }, { $group: { _id: kstDay('$timestamp'), n: { $sum: 1 } } }]),
+    agg(dailyStat, [{ $match: { eventType: 'VISIT' } }, { $group: { _id: { d: kstDay('$date'), g: groupExpr('$routeName') }, visits: { $sum: '$count' } } }]),
   ]);
-  const ivN = ivVisits[0]?.n || 0;
+  const ivN = ivVisits.reduce((s, r) => s + r.n, 0);
   const cb = routeVisits.find((r) => r._id === 'CAREER_BOARD');
   if (cb) cb.visits = Math.max(0, cb.visits - ivN);
   if (ivN) routeVisits.push({ _id: IV_ROUTE, visits: ivN });
@@ -252,25 +271,14 @@ async function buildFlows(db) {
   const topSet = new Set(topPages.map((p) => p.name));
   const routeEdges = rawPairs.filter((p) => topSet.has(p._id.f) && topSet.has(p._id.t)).map((p) => ({ from: p._id.f, to: p._id.t, n: p.n }));
   const exits = exitsRaw.filter((r) => r._id).map((r) => ({ name: r._id, exits: r.n, sessions: routeSessions.get(r._id) || r.n, exitRate: routeSessions.get(r._id) ? +(100 * r.n / routeSessions.get(r._id)).toFixed(1) : null }));
-  return { generatedAt: new Date().toISOString(), nodes, edges, cmFlows: { inflow: toSorted(inflow), outflow: toSorted(outflow) }, topPages, routeEdges, exits,
-    ivFlows: buildIvFlows(fr[0].ivPairs, fr[0].ivExits) };
-}
-// 면접연습 기준 유입·유출 (출시 이후 세션). 그룹 단위, 같은 그룹 안 이동은 제외 — 네트워크 그래프와 같은 정의
-//  유입 전환율 = A에서 다른 페이지로 나간 이동 중 면접연습으로 간 비율
-//  유출 비중   = 면접연습에서 떠난 것(다른 페이지 이동 + 세션 종료) 중 각 행선지 비율
-function buildIvFlows(pairs, exitRows) {
-  const G = '면접연습', outOf = new Map(), inbound = new Map(), outbound = new Map();
-  for (const p of pairs) { const f = routeGroup(p._id.f), t = routeGroup(p._id.t); if (f === t) continue;
-    outOf.set(f, (outOf.get(f) || 0) + p.n);
-    if (t === G) inbound.set(f, (inbound.get(f) || 0) + p.n);
-    if (f === G) outbound.set(t, (outbound.get(t) || 0) + p.n); }
-  const exits = exitRows.filter((r) => routeGroup(r._id) === G).reduce((s, r) => s + r.n, 0);
-  const leave = (outOf.get(G) || 0) + exits;
-  const pct = (a, b) => (b ? +(100 * a / b).toFixed(2) : null);
-  return { since: IV_FLOW_SINCE,
-    inbound: [...inbound.entries()].map(([name, n]) => ({ name, n, out: outOf.get(name) || 0, rate: pct(n, outOf.get(name)) })).sort((a, b) => b.n - a.n),
-    outbound: [...outbound.entries(), ['세션 종료(이탈)', exits]].filter(([, n]) => n > 0).map(([name, n]) => ({ name, n, rate: pct(n, leave) })).sort((a, b) => b.n - a.n),
-    totalIn: [...inbound.values()].reduce((s, n) => s + n, 0), leave, exits };
+  // 일별 묶음: edges[d] = [[from,to,n]...], nodes[d] = {그룹: 방문}, exits[d] = {그룹: 세션 종료 수}
+  const daily = { edges: {}, nodes: {}, exits: {} };
+  for (const p of fr[0].dayPairs) (daily.edges[p._id.d] ??= []).push([p._id.f, p._id.t, p.n]);
+  for (const r of fr[0].dayExits) (daily.exits[r._id.d] ??= {})[r._id.g] = r.n;
+  for (const r of dayVisits) { const o = (daily.nodes[r._id.d] ??= {}); o[r._id.g] = (o[r._id.g] || 0) + r.visits; }
+  for (const r of ivVisits) { const o = (daily.nodes[r._id] ??= {}); o['기타'] = Math.max(0, (o['기타'] || 0) - r.n); o['면접연습'] = (o['면접연습'] || 0) + r.n; }
+  daily.days = [...new Set([...Object.keys(daily.edges), ...Object.keys(daily.nodes)])].sort();
+  return { generatedAt: new Date().toISOString(), nodes, edges, cmFlows: { inflow: toSorted(inflow), outflow: toSorted(outflow) }, topPages, routeEdges, exits, daily };
 }
 // 구간별 distinct 순 사용자 (프리셋 lookback 창) — 최신일 기준
 async function computeWindowUsers(db, latest) {
