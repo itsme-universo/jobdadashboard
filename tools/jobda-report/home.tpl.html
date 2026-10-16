@@ -71,6 +71,8 @@
   .findings ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 7px; }
   .findings li { color: var(--ink-2); max-width: 78ch; }
   .findings b { color: var(--ink); font-variant-numeric: normal; }
+  .findings .fi { margin-right: 6px; }
+  .findings b.hl { background: #ffd83d; color: #111; padding: 0 5px; border-radius: 4px; }
 
   h2.section { font-size: 17px; font-weight: 700; letter-spacing: -0.3px; margin: 40px 0 4px; }
   p.section-desc { color: var(--muted); font-size: 13px; margin: 0 0 14px; max-width: 72ch; }
@@ -637,9 +639,9 @@ function render() {
     `커리어메모리 방문 <b>${fmt.format(cmVisitsTotal)}회</b>, 주요 유입은 홈·ACCA(역량검사)·직접 유입 순. 역검 흐름에서 넘어오는 유입이 뚜렷함.`,
     `커리어메모리 평균 체류 <b>${Math.round((sum.avgDwellMs || 0) / 1000)}초</b>, 평균 스크롤 <b>${(sum.avgScroll || 0).toFixed(0)}%</b>. 다만 이탈의 <b>${rate(dwellShort, dwellTotal)}%</b>가 10초 미만 — 짧게 확인만 하고 나가는 방문이 다수.`,
     `커리어메모리 완성률(기록 남김) <b>${rate(f.engaged, f.visitors)}%</b> — 방문자 ${fmt.format(f.visitors)}명 중 ${fmt.format(f.engaged)}명이 노트 저장 또는 자료 업로드.`,
-    `로켓지원(지원건=사용자×공고 단위): 총 시도 <b>${fmt.format(rfStart)}건</b> 중 최종 제출(크레딧 차감) <b>${fmt.format(rfSubmit)}건</b> = 전체 전환 <b>${rate(rfSubmit, rfStart)}%</b>. 가장 큰 이탈은 섹션 검토(${fmt.format(rfReview)}건)→제출로 <b>${rate(rfSubmit, rfReview)}%</b>만 통과.`,
+    `<span class="fi" aria-hidden="true">🚀</span>로켓지원(지원건=사용자×공고 단위): 총 시도 <b>${fmt.format(rfStart)}건</b> 중 최종 제출(크레딧 차감) <b class="hl">${fmt.format(rfSubmit)}건</b> = 전체 전환 <b>${rate(rfSubmit, rfStart)}%</b>. 가장 큰 이탈은 섹션 검토(${fmt.format(rfReview)}건)→제출로 <b>${rate(rfSubmit, rfReview)}%</b>만 통과.`,
     `커리어메모리 방문자 중 로켓지원 시도 <b>${rate(L.both, L.cmUsers)}%</b>, 최종 제출 <b>${rate(L.cmAndSubmit, L.cmUsers)}%</b>.`,
-  ].map((s) => `<li>${s}</li>`).join('');
+  ].map((s) => `<li>${s}</li>`).join('') + '<li id="findIv"></li>';
 
   // ===== 1 전체 개요
   const byId = (arr) => Object.fromEntries(arr.map((r) => [r._id, r]));
@@ -855,6 +857,7 @@ function renderHome(userAction){
   if(hstate.mode!=='custom' && rows.length){ const fi=document.getElementById('homeFrom'),ti=document.getElementById('homeTo'); if(fi) fi.value=rows[0].d; if(ti) ti.value=rows[rows.length-1].d; }
   hChips();
   flowSync();
+  renderIvFinding();
   const N=hstate.mode==='custom'?null:hstate.n; const wu=HOME.windowUsers||{}; let uv=null,un='';
   if(N!=null&&wu[N]!=null){uv=wu[N];un='정확(중복 제거)';}
   else if(N!=null){ const ks=Object.keys(wu).map(Number).sort((a,b)=>Math.abs(a-N)-Math.abs(b-N)); if(ks.length){uv=wu[ks[0]];un='≈ 최근 '+ks[0]+'일 기준';} }
@@ -948,6 +951,18 @@ function flowView(){
     for(const [g,v] of Object.entries(D.exits[d]||{})) ex[g]=(ex[g]||0)+v; }
   const edges=[...em].map(([k,n])=>{ const [f,t]=k.split('\u0001'); return {from:f,to:t,n}; }).sort((x,y)=>y.n-x.n);
   _fv={from,to,edges,nodes:Object.entries(nv).map(([name,visits])=>({name,visits})),exits:ex}; _fvKey=key; return _fv;
+}
+// 핵심 요약 · 면접연습 (날짜 필터 기간) — 완료 수 + 역량검사→면접연습 전환율
+function renderIvFinding(){
+  const el=document.getElementById('findIv'); if(!el) return;
+  const V=flowView(), G='면접연습', A='역량검사';
+  const icon='<span class="fi" aria-hidden="true">🎤</span>';
+  if(!V.from||V.to<IV_LAUNCH){ el.innerHTML=icon+'면접연습: 선택한 기간은 출시('+IV_LAUNCH+') 이전이라 데이터가 없습니다.'; return; }
+  const ds=(IV.daily||[]).filter(r=>r._id>=V.from&&r._id<=V.to);
+  const done=ds.reduce((t,r)=>t+(r.done||0),0), tokens=ds.reduce((t,r)=>t+(r.tokens||0),0);
+  let aOut=0,aIv=0; for(const e of V.edges){ if(e.from===A){ aOut+=e.n; if(e.to===G) aIv+=e.n; } }
+  el.innerHTML=icon+'면접연습 완료 <b class="hl">'+fmt.format(done)+'건</b> (토큰 사용 '+fmt.format(tokens)+'건). 역량검사 → 면접연습 전환율 <b class="hl">'+(aOut?(100*aIv/aOut).toFixed(1):'–')+'%</b> — 역검에서 다른 페이지로 나간 이동 '+fmt.format(aOut)+'건 중 '+fmt.format(aIv)+'건'
+    +(V.from<IV_LAUNCH?' (출시 이전 날짜 포함으로 희석)':'')+'.';
 }
 // 날짜 필터가 바뀌면 이동 경로 탭이 열려 있을 때 다시 그림
 function flowSync(){ const el=document.getElementById('tab-flow'); if(el&&!el.hidden){ hNetPick(); renderNet(); renderIvFlow(); } }

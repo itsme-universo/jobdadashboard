@@ -225,22 +225,33 @@ async function buildFlows(db) {
     { $unwind: '$pairs' }, { $match: { $expr: { $ne: ['$pairs.f', '$pairs.t'] } } },
     { $group: { _id: { f: '$pairs.f', t: '$pairs.t' }, n: { $sum: 1 } } },
   ];
-  // 일별(세션 시작일 KST) · 그룹 단위 — 화면의 날짜 필터가 이 값을 합산한다. 그룹으로 미리 묶어 facet 16MB 한도를 피함
-  const DAY_PAIR = [
-    { $project: { d: kstDay('$start'), groups: { $map: { input: '$routes', in: groupExpr('$$this') } } } },
-    { $project: { d: 1, pairs: pairsOf('$groups') } },
-    { $unwind: '$pairs' }, { $match: { $expr: { $ne: ['$pairs.f', '$pairs.t'] } } },
-    { $group: { _id: { d: '$d', f: '$pairs.f', t: '$pairs.t' }, n: { $sum: 1 } } },
+  // 일별 · 그룹 단위 — 화면의 날짜 필터가 이 값을 합산한다. 그룹으로 미리 묶어 facet 16MB 한도를 피함
+  //  날짜 = 이동이 일어난 날(KST). sessionId가 여러 날 이어지는 경우가 있어, 날짜를 넘는 연속은 이동이 아니라
+  //  전날 마지막 페이지에서의 종료로 본다.
+  const idx = { $range: [0, { $size: '$groups' }] };
+  const DAY_BASE = { $project: { days: 1, groups: { $map: { input: '$routes', in: groupExpr('$$this') } } } };
+  const DAY_PAIR = [DAY_BASE,
+    { $project: { pairs: { $map: { input: { $range: [0, { $max: [0, { $subtract: [{ $size: '$groups' }, 1] }] }] }, as: 'i', in: {
+      f: { $arrayElemAt: ['$groups', '$$i'] }, t: { $arrayElemAt: ['$groups', { $add: ['$$i', 1] }] },
+      df: { $arrayElemAt: ['$days', '$$i'] }, d: { $arrayElemAt: ['$days', { $add: ['$$i', 1] }] } } } } } },
+    { $unwind: '$pairs' }, { $match: { $expr: { $and: [{ $ne: ['$pairs.f', '$pairs.t'] }, { $eq: ['$pairs.df', '$pairs.d'] }] } } },
+    { $group: { _id: { d: '$pairs.d', f: '$pairs.f', t: '$pairs.t' }, n: { $sum: 1 } } },
+  ];
+  const DAY_EXIT = [DAY_BASE,
+    { $project: { ex: { $filter: { input: { $map: { input: idx, as: 'i', in: {
+      d: { $arrayElemAt: ['$days', '$$i'] }, g: { $arrayElemAt: ['$groups', '$$i'] },
+      last: { $or: [{ $eq: ['$$i', { $subtract: [{ $size: '$groups' }, 1] }] }, { $ne: [{ $arrayElemAt: ['$days', '$$i'] }, { $arrayElemAt: ['$days', { $add: ['$$i', 1] }] }] }] } } } }, as: 'x', cond: '$$x.last' } } } },
+    { $unwind: '$ex' }, { $group: { _id: { d: '$ex.d', g: '$ex.g' }, n: { $sum: 1 } } },
   ];
   const hasIv = { $or: [{ '_id.f': IV_ROUTE }, { '_id.t': IV_ROUTE }] };
   const [fr, routeVisits, ivVisits, dayVisits] = await Promise.all([
-    agg(trackingLog, [{ $match: { eventType: 'VISIT' } }, { $sort: { sessionId: 1, timestamp: 1 } }, { $group: { _id: '$sessionId', routes: { $push: ROUTE_KEY }, start: { $min: '$timestamp' } } },
+    agg(trackingLog, [{ $match: { eventType: 'VISIT' } }, { $sort: { sessionId: 1, timestamp: 1 } }, { $group: { _id: '$sessionId', routes: { $push: ROUTE_KEY }, days: { $push: kstDay('$timestamp') } } },
       { $facet: {
         pairs: [...PAIR, { $match: { $nor: [hasIv] } }, { $sort: { n: -1 } }, { $limit: 1200 }],
         // 면접연습은 규모가 작아 상위 1200 컷에서 빠지므로 별도로 전량 집계
         iv: [...PAIR, { $match: hasIv }],
         dayPairs: DAY_PAIR,
-        dayExits: [{ $project: { d: kstDay('$start'), last: groupExpr({ $arrayElemAt: ['$routes', -1] }) } }, { $group: { _id: { d: '$d', g: '$last' }, n: { $sum: 1 } } }],
+        dayExits: DAY_EXIT,
         cm: [...PAIR, { $match: { $or: [{ '_id.f': { $regex: '^CAREER_MEMORY' } }, { '_id.t': { $regex: '^CAREER_MEMORY' } }] } }, { $sort: { n: -1 } }, { $limit: 300 }],
         exits: [{ $project: { last: { $arrayElemAt: ['$routes', -1] } } }, { $group: { _id: '$last', n: { $sum: 1 } } }, { $sort: { n: -1 } }],
         routeSessions: [{ $unwind: '$routes' }, { $group: { _id: { s: '$_id', r: '$routes' } } }, { $group: { _id: '$_id.r', sessions: { $sum: 1 } } }],
