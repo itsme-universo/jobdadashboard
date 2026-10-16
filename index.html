@@ -924,11 +924,15 @@ function loadPick(){ if(netPick) return netPick; try{ const s=JSON.parse(localSt
 function hNetPick(){ const nv=Object.fromEntries(flowView().nodes.map(n=>[n.name,n.visits])); const pick=loadPick(); const box=document.getElementById('homeNetPick');
   box.innerHTML=NET_GROUPS.filter(g=>nv[g]>0).map(g=>'<button class="chip'+(pick.has(g)?' on':'')+'" data-g="'+g+'">'+g+'</button>').join('');
   box.querySelectorAll('.chip').forEach(b=>b.addEventListener('click',()=>{ const g=b.dataset.g; if(pick.has(g)) pick.delete(g); else pick.add(g); try{localStorage.setItem('homeNetPick',JSON.stringify([...pick]));}catch{} hNetPick(); renderNet(); })); }
+// 이동량 상위 n개 + 면접연습/고정 노드에 연결된 엣지 (규모가 작아 상위 컷에서 빠지는 것 방지)
+const NET_ALWAYS=['면접연습'];
+function _netEdges(list,n){ const keep=new Set(NET_ALWAYS.concat(netPinned?[netPinned]:[])); const top=list.slice(0,n);
+  return top.concat(list.slice(n).filter(e=>keep.has(e.from)||keep.has(e.to))); }
 function renderNet(){
   { const V=flowView(), el=document.getElementById('flowRange'); if(el) el.textContent=V.from?V.from+' ~ '+V.to:'기간 없음'; }
   const slot=Object.fromEntries(NET_GROUPS.map((g,i)=>[g,'--s'+(i+1)])); const nodeV=Object.fromEntries(flowView().nodes.map(n=>[n.name,n.visits]));
   const pick=loadPick(); const names=NET_GROUPS.filter(g=>nodeV[g]>0&&pick.has(g));
-  const edges=flowView().edges.filter(e=>pick.has(e.from)&&pick.has(e.to)&&nodeV[e.from]>0&&nodeV[e.to]>0).slice(0,28);
+  const edges=_netEdges(flowView().edges.filter(e=>pick.has(e.from)&&pick.has(e.to)&&nodeV[e.from]>0&&nodeV[e.to]>0),28);
   const host=document.getElementById('homeNet');
   if(names.length<2||!edges.length){ host.innerHTML='<div style="padding:40px 0;text-align:center;color:var(--muted)">'+(names.length<2?'페이지를 2개 이상 선택하세요.':'선택한 페이지 간 이동 흐름이 없습니다.')+'</div>'; document.getElementById('homeNetLegend').innerHTML=''; document.getElementById('tHomeNet').innerHTML=''; return; }
   document.getElementById('layerNote').innerHTML=LAYER_NOTE[netMetric];
@@ -938,7 +942,7 @@ function renderNet(){
   const col=g=>cssVar(slot[g]); const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); let eSvg='';
   edges.forEach(e=>{ const p1=pos[e.from],p2=pos[e.to],mx=(p1.x+p2.x)/2,my=(p1.y+p2.y)/2,dx=p2.x-p1.x,dy=p2.y-p1.y,len=Math.hypot(dx,dy)||1,nx=-dy/len,ny=dx/len;
     const cx=mx+(CX-mx)*.28-nx*18,cy=my+(CY-my)*.28-ny*18,sdx=cx-p1.x,sdy=cy-p1.y,sl=Math.hypot(sdx,sdy)||1,x1=p1.x+sdx/sl*rad[e.from],y1=p1.y+sdy/sl*rad[e.from];
-    const edx=p2.x-cx,edy=p2.y-cy,el2=Math.hypot(edx,edy)||1,ux=edx/el2,uy=edy/el2; const mv=_mval(e,st),mr=mv/valMax,w=homeEdgeMode==='width'?(1.5+10*Math.sqrt(mr)):2.5,op=(0.2+0.5*mr).toFixed(3);
+    const edx=p2.x-cx,edy=p2.y-cy,el2=Math.hypot(edx,edy)||1,ux=edx/el2,uy=edy/el2; const mv=_mval(e,st),mr=mv/valMax,w=homeEdgeMode==='width'?(1.5+10*Math.sqrt(mr)):2.5,op=Math.max(0.2+0.5*mr,(NET_ALWAYS.includes(e.from)||NET_ALWAYS.includes(e.to))?0.55:0).toFixed(3);
     const aw=Math.max(4,w*1.4),al=Math.max(8,w*2.2),gap=rad[e.to]+al+2,x2=p2.x-edx/el2*gap,y2=p2.y-edy/el2*gap,ax=x2+ux*al,ay=y2+uy*al,arrow=ax+','+ay+' '+(x2- -uy*aw)+','+(y2-ux*aw)+' '+(x2+ -uy*aw)+','+(y2+ux*aw);
     const c=col(e.from),t=.35,mt=1-t,lx=mt*mt*x1+2*mt*t*cx+t*t*x2,ly=mt*mt*y1+2*mt*t*cy+t*t*y2;
     const vt=homeEdgeMode==='value'?'<text x="'+lx+'" y="'+(ly+3.5)+'" text-anchor="middle" font-size="11" font-weight="600" fill="'+cssVar('--ink-2')+'" stroke="'+cssVar('--surface')+'" stroke-width="3" style="paint-order:stroke" pointer-events="none">'+_mfmt(mv)+'</text>':'';
@@ -953,10 +957,10 @@ function renderNet(){
   if(netPinned && !names.includes(netPinned)) netPinned=null;
   focus(netPinned); setHint();
   svg.querySelectorAll('.fn').forEach(x=>{ x.style.cursor='pointer';
-    const toggle=()=>{ netPinned=(netPinned===x.dataset.node?null:x.dataset.node); focus(netPinned); setHint(); };
+    const toggle=()=>{ netPinned=(netPinned===x.dataset.node?null:x.dataset.node); renderNet(); };
     x.addEventListener('click',toggle);
     x.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); toggle(); } }); });
-  { const rs=flowView().edges.filter(e=>pick.has(e.from)&&pick.has(e.to)).slice(0,40);
+  { const rs=_netEdges(flowView().edges.filter(e=>pick.has(e.from)&&pick.has(e.to)),40);
     document.getElementById('tHomeNet').innerHTML='<table><thead><tr><th>이동 경로</th><th>이동량</th><th>전환율</th><th>연관도</th></tr></thead><tbody>'+rs.map(e=>{const p=e.n/(st.outF[e.from]||1),lf=p/((st.inT[e.to]||1)/(st.tot||1));return '<tr><td>'+e.from+' → '+e.to+'</td><td>'+fmt.format(e.n)+'</td><td>'+(p*100).toFixed(1)+'%</td><td>'+lf.toFixed(2)+'×</td></tr>';}).join('')+'</tbody></table>'; }
 }
 
