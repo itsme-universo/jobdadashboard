@@ -393,7 +393,7 @@
   <div class="card wide">
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
       <span class="desc" style="margin:0">보고 싶은 페이지를 선택하세요 (2개 이상)</span>
-      <span class="card-tools"><span class="seg" id="homeEdgeMode"><button data-m="width" class="on">굵기로 표현</button><button data-m="value">값으로 표현</button></span></span>
+      <span class="card-tools"><span class="seg" id="homeNetAll"><button data-a="all">전체 선택</button><button data-a="none">전체 해제</button></span> <span class="seg" id="homeEdgeMode"><button data-m="width" class="on">굵기로 표현</button><button data-m="value">값으로 표현</button></span></span>
     </div>
     <div class="chips" id="homeNetPick" style="margin-bottom:8px"></div>
     <div class="desc" id="homeNetHint" style="margin:0 0 6px">노드를 클릭하면 관련 흐름만 고정됩니다</div>
@@ -916,16 +916,16 @@ const LAYER_NOTE={count:'<b>착시 주의</b> 지금은 절대 이동량(count) 
 function _flowStats(){ const outF={},inT={}; let tot=0; for(const e of FLOWS.edges){ outF[e.from]=(outF[e.from]||0)+e.n; inT[e.to]=(inT[e.to]||0)+e.n; tot+=e.n; } return {outF,inT,tot}; }
 function _mval(e,st){ if(netMetric==='count') return e.n; const p=e.n/(st.outF[e.from]||1); if(netMetric==='cond') return p; return p/((st.inT[e.to]||1)/(st.tot||1)); }
 function _mfmt(v){ if(netMetric==='count') return fmt.format(v); if(netMetric==='cond') return (v*100).toFixed(1)+'%'; return v.toFixed(2)+'×'; }
-function loadPick(){ if(netPick) return netPick; try{ const s=JSON.parse(localStorage.getItem('homeNetPick')); if(Array.isArray(s)&&s.length>=2) netPick=new Set(s);}catch{} if(!netPick){ const nv=Object.fromEntries(FLOWS.nodes.map(n=>[n.name,n.visits])); netPick=new Set(NET_GROUPS.filter(g=>nv[g]>0)); } return netPick; }
+function loadPick(){ if(netPick) return netPick; try{ const s=JSON.parse(localStorage.getItem('homeNetPick')); if(Array.isArray(s)) netPick=new Set(s);}catch{} if(!netPick){ const nv=Object.fromEntries(FLOWS.nodes.map(n=>[n.name,n.visits])); netPick=new Set(NET_GROUPS.filter(g=>nv[g]>0)); } return netPick; }
 function hNetPick(){ const nv=Object.fromEntries(FLOWS.nodes.map(n=>[n.name,n.visits])); const pick=loadPick(); const box=document.getElementById('homeNetPick');
   box.innerHTML=NET_GROUPS.filter(g=>nv[g]>0).map(g=>'<button class="chip'+(pick.has(g)?' on':'')+'" data-g="'+g+'">'+g+'</button>').join('');
-  box.querySelectorAll('.chip').forEach(b=>b.addEventListener('click',()=>{ const g=b.dataset.g; if(pick.has(g)){ if(pick.size<=2){ toast('최소 2개는 선택해야 합니다'); return;} pick.delete(g);} else pick.add(g); try{localStorage.setItem('homeNetPick',JSON.stringify([...pick]));}catch{} hNetPick(); renderNet(); })); }
+  box.querySelectorAll('.chip').forEach(b=>b.addEventListener('click',()=>{ const g=b.dataset.g; if(pick.has(g)) pick.delete(g); else pick.add(g); try{localStorage.setItem('homeNetPick',JSON.stringify([...pick]));}catch{} hNetPick(); renderNet(); })); }
 function renderNet(){
   const slot=Object.fromEntries(NET_GROUPS.map((g,i)=>[g,'--s'+(i+1)])); const nodeV=Object.fromEntries(FLOWS.nodes.map(n=>[n.name,n.visits]));
   const pick=loadPick(); const names=NET_GROUPS.filter(g=>nodeV[g]>0&&pick.has(g));
   const edges=FLOWS.edges.filter(e=>pick.has(e.from)&&pick.has(e.to)&&nodeV[e.from]>0&&nodeV[e.to]>0).slice(0,28);
   const host=document.getElementById('homeNet');
-  if(names.length<2||!edges.length){ host.innerHTML='<div style="padding:40px 0;text-align:center;color:var(--muted)">선택한 페이지 간 이동 흐름이 없습니다.</div>'; document.getElementById('homeNetLegend').innerHTML=''; return; }
+  if(names.length<2||!edges.length){ host.innerHTML='<div style="padding:40px 0;text-align:center;color:var(--muted)">'+(names.length<2?'페이지를 2개 이상 선택하세요.':'선택한 페이지 간 이동 흐름이 없습니다.')+'</div>'; document.getElementById('homeNetLegend').innerHTML=''; document.getElementById('tHomeNet').innerHTML=''; return; }
   document.getElementById('layerNote').innerHTML=LAYER_NOTE[netMetric];
   const st=_flowStats(); const valMax=Math.max(...edges.map(e=>_mval(e,st)),1e-9);
   const W=940,H=640,CX=W/2,CY=H/2,R=230,vMax=Math.max(...names.map(g=>nodeV[g]));
@@ -1033,6 +1033,7 @@ function homeInit(){
     if(f<DATA_START){ toast('집계 시작일('+DATA_START+') 이후 데이터만 있습니다. 시작일을 조정했어요.'); f=DATA_START; fi.value=f; }
     hstate.mode='custom'; hstate.from=f; hstate.to=t; renderHome(false); }
   fi.addEventListener('change',applyCustom); ti.addEventListener('change',applyCustom);
+  document.getElementById('homeNetAll').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{ const nv=Object.fromEntries(FLOWS.nodes.map(n=>[n.name,n.visits])); netPick=new Set(b.dataset.a==='all'?NET_GROUPS.filter(g=>nv[g]>0):[]); netPinned=null; try{localStorage.setItem('homeNetPick',JSON.stringify([...netPick]));}catch{} hNetPick(); renderNet(); }));
   document.getElementById('homeEdgeMode').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{ homeEdgeMode=b.dataset.m; document.getElementById('homeEdgeMode').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b)); renderNet(); }));
   document.getElementById('homeLayers').querySelectorAll('.layer').forEach(b=>b.addEventListener('click',()=>{ netMetric=b.dataset.metric; document.getElementById('homeLayers').querySelectorAll('.layer').forEach(x=>x.classList.toggle('on',x===b)); renderNet(); }));
   document.querySelectorAll('#subtabs a').forEach(a=>a.addEventListener('click',e=>{ e.preventDefault(); showTab(a.dataset.t); }));
