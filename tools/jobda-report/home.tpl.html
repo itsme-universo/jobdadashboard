@@ -407,7 +407,7 @@
     </div>
     <div class="card wide">
       <h3>진입 경로별 노출 → 클릭</h3>
-      <p class="desc">배너는 노출이 집계되고, 메뉴·팝업 등은 클릭만 집계됩니다 · 클릭률 = 클릭 사람 / 노출 사람</p>
+      <p class="desc">클릭률 = 클릭한 사람 / 노출된 사람 · <b>정확</b> = 그 요소가 화면에 뜬 이벤트로 셈 · <b>추정</b> = 노출 이벤트가 없어 그 요소가 있는 화면의 방문자로 대신 셈(상한이라 클릭률은 실제보다 낮게 나옴) · 기준에 마우스를 올리면 산출 방법이 보입니다</p>
       <div class="scroll" id="tIvEntry"></div>
     </div>
     <div class="card"><h3>면접 유형</h3><p class="desc">응시 시작 기준</p><div class="plot" style="height:180px"><canvas id="cIvType"></canvas></div></div>
@@ -940,7 +940,7 @@ function renderIv(){
     tile('리포트 생성',rate(t.reports,t.tokens),null,fmt.format(t.reports||0)+'건','%')+
     tile('리포트 조회한 사람',rate(p.report,p.token),null,fmt.format(p.report||0)+' / '+fmt.format(p.token||0)+'명','%')+
     tile('커리어메모리 연동',rate(p.memory,p.token),null,fmt.format(p.memory||0)+'명 (면접 결과 자동 저장)','%');
-  $('tIvEntry').innerHTML='<table><thead><tr><th>진입 경로</th><th>노출(사람)</th><th>클릭(사람)</th><th>클릭률</th></tr></thead><tbody>'+IV.entry.map(e=>'<tr><td>'+esc(e.name)+'</td><td>'+(e.viewUsers?fmt.format(e.viewUsers):'—')+'</td><td>'+fmt.format(e.clickUsers)+'</td><td>'+(e.viewUsers?rate(e.clickUsers,e.viewUsers)+'%':'—')+'</td></tr>').join('')+'</tbody></table>';
+  $('tIvEntry').innerHTML='<table><thead><tr><th>진입 경로</th><th>노출(사람)</th><th>클릭(사람)</th><th>클릭률</th><th>노출 기준</th></tr></thead><tbody>'+IV.entry.map(e=>'<tr><td>'+esc(e.name)+'</td><td>'+(e.viewUsers?fmt.format(e.viewUsers):'—')+'</td><td>'+fmt.format(e.clickUsers)+'</td><td>'+(e.viewUsers?rate(e.clickUsers,e.viewUsers)+'%':'—')+'</td><td><span title="'+esc2(e.how||'')+'" style="cursor:help;'+(e.basis==='추정'?'color:var(--muted)':'')+'">'+(e.basis||'없음')+(e.basis==='추정'?' (상한)':'')+'</span></td></tr>').join('')+'</tbody></table>';
   const v=(rows)=>rows.map(r=>({name:r.name,v:r.n}));
   featHbar('cIvType',v(IV.mix.type));
   featHbar('cIvMode',[...IV.mix.mode.map(r=>({name:'설정 · '+r.name,v:r.n})),...IV.mix.setType.map(r=>({name:'세트 · '+r.name,v:r.n}))]);
