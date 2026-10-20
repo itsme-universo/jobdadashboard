@@ -72,6 +72,19 @@
   .findings li { color: var(--ink-2); max-width: 78ch; }
   .findings b { color: var(--ink); font-variant-numeric: normal; }
   .findings .fi { margin-right: 6px; }
+  .sv-n { font-size: 11px; font-weight: 600; color: var(--muted); margin-left: 4px; }
+  .sv-small { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 6px; margin-left: 4px; background: color-mix(in srgb, var(--s2) 20%, transparent); color: var(--s2); }
+  .sv-row { display: grid; grid-template-columns: 190px 1fr 96px; gap: 10px; align-items: center; margin: 7px 0; font-size: 12.5px; }
+  .sv-row .lab { color: var(--ink-2); }
+  .sv-row .num { text-align: right; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .sv-stack { display: flex; height: 16px; border-radius: 4px; overflow: hidden; background: color-mix(in srgb, var(--grid) 70%, transparent); }
+  .sv-stack span { display: block; height: 100%; }
+  .sv-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11.5px; color: var(--ink-2); margin: 10px 0 2px; }
+  .sv-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  .sv-note { font-size: 12px; color: var(--muted); margin: 8px 0 0; }
+  .sv-empty { color: var(--muted); font-size: 12.5px; padding: 22px 0; text-align: center; }
+  .sv-up { color: var(--up); } .sv-down { color: var(--down); }
+  @media (max-width: 520px) { .sv-row { grid-template-columns: 84px 1fr 76px; gap: 8px; } }
   .findings b.hl { background: #ffd83d; color: #111; padding: 0 5px; border-radius: 4px; }
 
   h2.section { font-size: 17px; font-weight: 700; letter-spacing: -0.3px; margin: 40px 0 4px; }
@@ -442,6 +455,19 @@
     <div class="card"><h3>답변 방식 · 세트 종류</h3><p class="desc">면접 설정(모드) · 질문세트 종류</p><div class="plot" style="height:180px"><canvas id="cIvMode"></canvas></div></div>
     <div class="card"><h3>면접관 선택</h3><p class="desc">면접 설정 완료 기준</p><div class="plot" style="height:180px"><canvas id="cIvInterviewer"></canvas></div></div>
     <div class="card"><h3>1인당 토큰 사용</h3><p class="desc">토큰을 쓴 사람의 사용 횟수 분포</p><div class="plot" style="height:180px"><canvas id="cIvPerUser"></canvas></div></div>
+  </div>
+
+  <h2 class="section" style="margin-top:28px">면접연습 설문 <span class="tip" tabindex="0" data-tip="출처: 설문 응답(survey_answer). 응답 1회 = 제출 1건. 이탈 설문은 연습 화면(표지·준비·카운트다운·연습 중)에서 ‘나가기 확정’ 시 뜨고, 설정 단계(1~5)에서는 뜨지 않습니다. 완료 설문은 면접 완료 후 뜹니다. 응답률 분모는 설문 노출 이벤트가 없어 ‘나가기 확정’ 클릭·면접 완료 수로 대신합니다(근사). 사용자 식별자는 반출하지 않으며 자유서술은 원문 대신 건수만 표시합니다.">ⓘ</span></h2>
+  <p class="section-desc">위 날짜 필터 기간(<span id="svRange"></span>) · 설문 시작 <span id="svSince"></span> 이후 응답 · <span id="svAsOf"></span> 집계<span id="svVarWrap" hidden> · 면접관 <span class="seg" id="svVar"><button data-v="3d" class="on">일반</button><button data-v="live">라이브</button></span></span></p>
+  <div class="kpis" id="svKpis"></div>
+  <div class="grid">
+    <div class="card"><h3>① 왜 그만뒀나 <span class="sv-n" id="svExitN"></span></h3><p class="desc">이탈 설문 · 중간에 그만둔 이유 (응답 1회당 1개 선택)</p><div id="svExit"></div></div>
+    <div class="card"><h3>② 어느 단계에서 나갔나 <span class="tip" tabindex="0" data-tip="‘나가기 확정’(INTERVIEW_LEAVE) 클릭 수 기준. 색 = 그 단계에서 나간 사람이 고른 이탈 사유, 회색 = 설문에 답하지 않은 이탈. 설정 단계는 설문이 뜨지 않아 전부 회색입니다.">ⓘ</span></h3><p class="desc">‘나가기 확정’ 클릭 · 색 = 설문 응답 사유 · 회색 = 미응답</p><div id="svStep"></div></div>
+    <div class="card"><h3>③ 완료 후 만족도 <span class="sv-n" id="svScaleN"></span></h3><p class="desc">1~7점 분포 · 오른쪽 = 평균 · 5~7점 비율</p><div id="svScale"></div></div>
+    <div class="card"><h3>④ 추천 의향 (NPS) <span class="sv-n" id="svNpsN"></span> <span class="tip" tabindex="0" data-tip="0~10점. 추천 = 9~10점, 중립 = 7~8점, 비추천 = 0~6점. NPS = 추천 비율 − 비추천 비율 (−100 ~ +100).">ⓘ</span></h3><p class="desc" id="svNpsDesc"></p><div class="plot" style="height:190px"><canvas id="cSvNps"></canvas></div></div>
+    <div class="card"><h3>⑤ 완료 후 한 줄 피드백 <span class="sv-n" id="svChipN"></span></h3><p class="desc">선택지 (복수 선택) · <span class="sv-up">▲ 긍정</span> <span class="sv-down">▼ 부정</span> · 비율 = 완료 설문 응답 대비</p><div id="svChip"></div></div>
+    <div class="card"><h3>⑥ 라이브 면접 기대 <span class="sv-n" id="svPreN"></span></h3><p class="desc">라이브 면접 사전 신청 · 가장 기대하는 점 (복수 선택)</p><div id="svPre"></div></div>
+    <div class="card wide"><h3>⑦ 일별 응답 추이</h3><p class="desc">막대 = 이탈·완료 설문 응답 수 · 선 = 일별 NPS (완료 응답 5건 미만인 날은 표시 안 함)</p><div class="plot" style="height:220px"><canvas id="cSvDaily"></canvas></div><details class="tbl"><summary>표 보기</summary><div class="scroll" id="tSvDaily"></div></details></div>
   </div>
   </div>
 
@@ -830,6 +856,7 @@ const HOME = __HOME__;
 const FLOWS = __FLOWS__;
 const IV = __INTERVIEW__;
 const TP = __TALENT__;
+const SV = __SURVEY__;
 const DATA_START = '2026-08-27';
 let homeCharts = [];
 const _tt = document.getElementById('tooltip');
@@ -858,6 +885,7 @@ function renderHome(userAction){
   hChips();
   flowSync();
   renderIvFinding();
+  svSync();
   const N=hstate.mode==='custom'?null:hstate.n; const wu=HOME.windowUsers||{}; let uv=null,un='';
   if(N!=null&&wu[N]!=null){uv=wu[N];un='정확(중복 제거)';}
   else if(N!=null){ const ks=Object.keys(wu).map(Number).sort((a,b)=>Math.abs(a-N)-Math.abs(b-N)); if(ks.length){uv=wu[ks[0]];un='≈ 최근 '+ks[0]+'일 기준';} }
@@ -889,8 +917,9 @@ function renderHome(userAction){
 // 탭
 function showTab(t){ ['overview','cm','rocket','flow','iv','tp'].forEach(x=>{ const el=document.getElementById('tab-'+x); if(el) el.hidden=(x!==t); });
   if(t==='flow'){ renderNet(); renderIvFlow(); }
+  if(t==='iv') renderSurvey();
   document.querySelectorAll('#subtabs a').forEach(a=>a.classList.toggle('active',a.dataset.t===t));
-  setTimeout(()=>{ try{charts.concat(featCharts).forEach(c=>c.resize());}catch(e){} },10); }
+  setTimeout(()=>{ try{charts.concat(featCharts,svCharts).forEach(c=>c.resize());}catch(e){} },10); }
 // 네트워크
 const NET_GROUPS=['홈','로그인/가입','공고 탐색','역량검사','매칭','커리어메모리','마이페이지','콘텐츠','면접연습'];
 let homeEdgeMode='width', netMetric='count', netPick=null, netPinned=null;
@@ -1035,6 +1064,97 @@ function renderIv(){
   featHbar('cIvMode',[...IV.mix.mode.map(r=>({name:'설정 · '+r.name,v:r.n})),...IV.mix.setType.map(r=>({name:'세트 · '+r.name,v:r.n}))]);
   featHbar('cIvInterviewer',v(IV.mix.interviewer)); featHbar('cIvPerUser',v(IV.perUser));
 }
+// ---- 면접연습 설문 (날짜 필터 기간) — 이탈 사유 · 단계별 이탈 · 만족도 · NPS · 피드백 · 라이브 사전 신청
+const SV_STEPS=[['SETUP','설정 단계'],['COVER','표지'],['PREPARING','준비'],['COUNTDOWN','카운트다운'],['PRACTICING','연습 중']];
+const SV_EXIT=[['TIME','--s1'],['QUESTION_HARD','--s2'],['TECH_BAD','--s4'],['QUESTION_BAD','--s5'],['REALISM_BAD','--s9'],['ETC','--s7'],['NO_ANSWER','--muted']];
+const SV_POS=new Set(['RELIEF_GOOD','REPORT_CLEAR','TENSION_GOOD']);
+const SV_SCALES=[['burden','면접 부담이 줄었다'],['realism','실제 면접 같았다'],['report','강점·약점을 파악했다'],['intent','질문 의도·추천 답변이 적절했다']];
+const SV_MIN=10; // 이 미만이면 '표본 적음'
+let svVar='3d', svCharts=[];
+function svNps(h){ let n=0,pro=0,det=0; for(const [sc,k] of Object.entries(h||{})){ n+=k; if(+sc>=9) pro+=k; else if(+sc<=6) det+=k; }
+  return n?{n,pro,det,pas:n-pro-det,score:Math.round(100*(pro-det)/n)}:null; }
+function svView(){
+  const rows=hRows(), from=rows.length?rows[0].d:null, to=rows.length?rows[rows.length-1].d:null, open=to===_maxD; // 최신일까지면 오늘 집계분도 포함
+  const v={from,to,open,leave:{},done:0,exit:{n:0,text:0,r:{},st:{}},complete:{n:0,text:0,sc:{},chip:{}},pre:{n:0,o:{}},days:[]};
+  const add=(o,src)=>{ for(const [k,n] of Object.entries(src||{})) o[k]=(o[k]||0)+n; };
+  for(const d of Object.keys(SV.daily||{}).sort()){ if(!from||d<from||(!open&&d>to)) continue; const x=SV.daily[d];
+    const e=x['exit:'+svVar], c=x['complete:'+svVar], p=x['pre:live'];
+    add(v.leave,x.leave); v.done+=x.done||0;
+    if(e){ v.exit.n+=e.n; v.exit.text+=e.text; add(v.exit.r,e.r); for(const [st,o] of Object.entries(e.st||{})) add(v.exit.st[st]??={},o); }
+    if(c){ v.complete.n+=c.n; v.complete.text+=c.text; add(v.complete.chip,c.chip); for(const [q,o] of Object.entries(c.sc||{})) add(v.complete.sc[q]??={},o); }
+    if(p){ v.pre.n+=p.n; add(v.pre.o,p.o); }
+    v.days.push({d,exit:e?e.n:0,complete:c?c.n:0,nps:svNps(c&&c.sc&&c.sc.nps)}); }
+  return v;
+}
+const svN=(n)=>'n='+fmt.format(n)+(n<SV_MIN?'<span class="sv-small">표본 적음</span>':'');
+const svPct=(a,b)=>b>0?Math.round(100*a/b)+'%':'–';
+function svBars(rows,total,empty){ // rows: [{label,n,color}] — 길이는 최댓값 기준, 오른쪽 = 건수 · 비율(total 대비)
+  if(!rows.length) return '<div class="sv-empty">'+(empty||'선택한 기간에 응답이 없습니다.')+'</div>';
+  const mx=Math.max(...rows.map(r=>r.n),1);
+  return rows.map(r=>'<div class="sv-row"><span class="lab">'+r.label+'</span><span class="sv-stack" style="background:none"><span style="width:'+(100*r.n/mx)+'%;background:'+r.color+';border-radius:4px"></span></span><span class="num">'+fmt.format(r.n)+' · '+svPct(r.n,total)+'</span></div>').join('');
+}
+function renderSurvey(){
+  if(!$('svKpis')) return;
+  svCharts.forEach(c=>c.destroy()); svCharts=[];
+  const V=svView(), L=SV.labels||{}, ex=V.exit, cp=V.complete, nps=svNps(cp.sc.nps);
+  const hasLive=Object.values(SV.daily||{}).some(x=>(x['exit:live']||{}).n||(x['complete:live']||{}).n);
+  $('svVarWrap').hidden=!hasLive;
+  $('svRange').textContent=V.from?V.from+' ~ '+V.to+(V.open?' · 오늘 집계분 포함':''):'데이터 없음';
+  $('svSince').textContent=new Date(SV.since).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'});
+  $('svAsOf').textContent=new Date(SV.asOf).toLocaleString('ko-KR');
+  // 이탈 설문이 뜨는 단계(설정 단계 제외)의 '나가기 확정' 수 = 이탈 응답률 분모
+  const leaveSv=SV_STEPS.filter(([k])=>k!=='SETUP').reduce((t,[k])=>t+(V.leave[k]||0),0);
+  $('svKpis').innerHTML=
+    tile('이탈 설문 응답'+info('연습 화면(표지·준비·카운트다운·연습 중)에서 ‘나가기 확정’을 누른 수 대비. 설정 단계(1~5)에서는 설문이 뜨지 않아 분모에서 뺍니다.'),ex.n,null,null,'건').replace('<div class="delta"></div>','<div class="delta">응답률 '+svPct(ex.n,leaveSv)+' ('+fmt.format(ex.n)+' / '+fmt.format(leaveSv)+' 나가기)</div>')+
+    tile('완료 설문 응답'+info('면접 완료(INTERVIEW_SESSION_DONE) 수 대비.'),cp.n,null,null,'건').replace('<div class="delta"></div>','<div class="delta">응답률 '+svPct(cp.n,V.done)+' ('+fmt.format(cp.n)+' / '+fmt.format(V.done)+' 면접 완료)</div>')+
+    tile('추천 의향 NPS'+info('추천(9~10점) 비율 − 비추천(0~6점) 비율. −100 ~ +100.'),nps?(nps.score>0?'+':'')+nps.score:null,null,null,'').replace('<div class="delta"></div>','<div class="delta">'+(nps?'추천 '+nps.pro+' · 중립 '+nps.pas+' · 비추천 '+nps.det+(nps.n<SV_MIN?' · 표본 적음':''):'응답 없음')+'</div>')+
+    tile('라이브 면접 사전 신청',V.pre.n,null,null,'명').replace('<div class="delta"></div>','<div class="delta">라이브 면접 출시 전 대기 신청</div>');
+  // ① 이탈 사유
+  $('svExitN').innerHTML=svN(ex.n);
+  $('svExit').innerHTML=svBars(SV_EXIT.filter(([k])=>ex.r[k]).map(([k,c])=>({label:esc(L.exit[k]||k),n:ex.r[k],color:'var('+c+')'})).sort((a,b)=>b.n-a.n),ex.n)
+    +(ex.text?'<p class="sv-note">기타 자유서술 '+fmt.format(ex.text)+'건 (원문 비공개)</p>':'');
+  // ② 단계별 이탈 — 회색 = 설문 미응답
+  const steps=SV_STEPS.filter(([k])=>V.leave[k]||ex.st[k]);
+  if(!steps.length) $('svStep').innerHTML='<div class="sv-empty">선택한 기간에 이탈 기록이 없습니다.</div>';
+  else { const used=new Set();
+    $('svStep').innerHTML=steps.map(([k,lab])=>{ const st=ex.st[k]||{}, resp=Object.values(st).reduce((a,b)=>a+b,0), tot=Math.max(V.leave[k]||0,resp);
+      const seg=SV_EXIT.filter(([r])=>st[r]).map(([r,c])=>{ used.add(r); return '<span title="'+esc2((L.exit[r]||r)+' '+st[r]+'건')+'" style="width:'+(100*st[r]/tot)+'%;background:var('+c+')"></span>'; }).join('');
+      return '<div class="sv-row"><span class="lab">'+lab+'</span><span class="sv-stack">'+seg+'</span><span class="num">'+(k==='SETUP'?fmt.format(tot)+' · 설문 없음':'응답 '+fmt.format(resp)+' / '+fmt.format(tot))+'</span></div>'; }).join('')
+      +'<div class="sv-legend">'+SV_EXIT.filter(([r])=>used.has(r)).map(([r,c])=>'<span><i style="background:var('+c+')"></i>'+esc(L.exit[r]||r)+'</span>').join('')+'<span><i style="background:color-mix(in srgb,var(--grid) 70%,transparent)"></i>설문 미응답</span></div>'
+      +'<p class="sv-note">설정 단계 이탈은 설문 대상이 아닙니다. 연습 화면 이탈 '+fmt.format(leaveSv)+'건 중 '+fmt.format(ex.n)+'건 응답('+svPct(ex.n,leaveSv)+').</p>'; }
+  // ③ 만족도 1~7
+  $('svScaleN').innerHTML=svN(cp.n);
+  const shade=(sc)=>sc<4?'color-mix(in srgb,var(--s8) '+[100,70,45][sc-1]+'%,transparent)':sc===4?'color-mix(in srgb,var(--muted) 45%,transparent)':'color-mix(in srgb,var(--s3) '+[45,70,100][sc-5]+'%,transparent)';
+  const sRows=SV_SCALES.filter(([k])=>cp.sc[k]).map(([k,lab])=>{ const h=cp.sc[k], n=Object.values(h).reduce((a,b)=>a+b,0), sum=Object.entries(h).reduce((a,[sc,c])=>a+sc*c,0), top=[5,6,7].reduce((a,sc)=>a+(h[sc]||0),0);
+    const seg=[1,2,3,4,5,6,7].filter(sc=>h[sc]).map(sc=>'<span title="'+sc+'점 '+h[sc]+'명" style="width:'+(100*h[sc]/n)+'%;background:'+shade(sc)+'"></span>').join('');
+    return '<div class="sv-row"><span class="lab" title="'+esc2((L.scales[k]||{}).q||'')+'">'+lab+'</span><span class="sv-stack">'+seg+'</span><span class="num">평균 '+(sum/n).toFixed(1)+' · '+svPct(top,n)+'</span></div>'; });
+  $('svScale').innerHTML=sRows.length?sRows.join('')+'<div class="sv-legend">'+[1,2,3,4,5,6,7].map(sc=>'<span><i style="background:'+shade(sc)+'"></i>'+sc+(sc===1?' 전혀 아님':sc===4?' 보통':sc===7?' 매우 그렇다':'')+'</span>').join('')+'</div>':'<div class="sv-empty">선택한 기간에 완료 설문 응답이 없습니다.</div>';
+  // ④ NPS 0~10
+  $('svNpsN').innerHTML=svN(nps?nps.n:0);
+  $('svNpsDesc').innerHTML=nps?'NPS <b>'+(nps.score>0?'+':'')+nps.score+'</b> = 추천(9~10) '+svPct(nps.pro,nps.n)+' − 비추천(0~6) '+svPct(nps.det,nps.n)+' · 중립(7~8) '+nps.pas+'명':'선택한 기간에 응답이 없습니다.';
+  { const h=cp.sc.nps||{}, xs=[...Array(11).keys()], col=(sc)=>cssVar(sc>=9?'--s3':sc>=7?'--muted':'--s8');
+    const o=baseOptions(); o.plugins.legend={display:false}; o.scales.x.title={display:true,text:'점수 (0 = 전혀 추천 안 함 · 10 = 꼭 추천)',color:cssVar('--muted'),font:{size:11}}; o.scales.y.ticks.precision=0;
+    o.plugins.tooltip.callbacks={title:(it)=>it[0].label+'점',label:(it)=>' '+it.raw+'명'};
+    svCharts.push(new Chart($('cSvNps'),{type:'bar',data:{labels:xs.map(String),datasets:[{data:xs.map(sc=>h[sc]||0),backgroundColor:xs.map(col),borderRadius:3,maxBarThickness:26}]},options:o})); }
+  // ⑤ 한 줄 피드백
+  $('svChipN').innerHTML=svN(cp.n);
+  $('svChip').innerHTML=svBars(Object.entries(cp.chip).map(([k,n])=>{ const pos=SV_POS.has(k); return {label:'<span class="'+(pos?'sv-up':'sv-down')+'">'+(pos?'▲':'▼')+'</span> '+esc(L.chip[k]||k),n,color:'var('+(pos?'--s3':'--s8')+')'}; }).sort((a,b)=>b.n-a.n),cp.n,'선택한 기간에 선택지 응답이 없습니다.')
+    +(cp.text?'<p class="sv-note">자유서술 '+fmt.format(cp.text)+'건 (개인정보 보호를 위해 원문 비공개)</p>':'');
+  // ⑥ 라이브 면접 기대
+  $('svPreN').innerHTML=svN(V.pre.n);
+  $('svPre').innerHTML=svBars(Object.entries(V.pre.o).map(([k,n])=>({label:esc(L.pre[k]||k),n,color:'var(--s7)'})).sort((a,b)=>b.n-a.n),V.pre.n);
+  // ⑦ 일별 추이
+  { const D=V.days, o=baseOptions(); o.scales.x.stacked=true; o.scales.y.stacked=true; o.scales.y.ticks.precision=0;
+    o.scales.y1={position:'right',min:-100,max:100,grid:{display:false},border:{display:false},ticks:{color:cssVar('--muted'),font:{size:11},stepSize:50},title:{display:true,text:'NPS',color:cssVar('--muted'),font:{size:11}}};
+    const npsLine=Object.assign(lineDs('일별 NPS',D.map(r=>r.nps&&r.nps.n>=5?r.nps.score:null),cssVar('--s3')),{type:'line',yAxisID:'y1',spanGaps:false});
+    svCharts.push(new Chart($('cSvDaily'),{type:'bar',data:{labels:D.map(r=>shortDay(r.d)),datasets:[
+      {label:'이탈 설문',data:D.map(r=>r.exit),backgroundColor:cssVar('--s2'),borderRadius:3,maxBarThickness:32,stack:'s'},
+      {label:'완료 설문',data:D.map(r=>r.complete),backgroundColor:cssVar('--s1'),borderRadius:3,maxBarThickness:32,stack:'s'},npsLine]},options:o}));
+    $('tSvDaily').innerHTML='<table><thead><tr><th>일자</th><th>이탈 설문</th><th>완료 설문</th><th>NPS (응답 수)</th></tr></thead><tbody>'+D.map(r=>'<tr><td>'+r.d+'</td><td>'+fmt.format(r.exit)+'</td><td>'+fmt.format(r.complete)+'</td><td>'+(r.nps?(r.nps.score>0?'+':'')+r.nps.score+' ('+r.nps.n+')':'–')+'</td></tr>').join('')+'</tbody></table>'; }
+  bindTips($('tab-iv'));
+}
+function svSync(){ const el=document.getElementById('tab-iv'); if(el&&!el.hidden) renderSurvey(); }
+document.querySelectorAll('#svVar button').forEach(b=>b.addEventListener('click',()=>{ svVar=b.dataset.v; document.querySelectorAll('#svVar button').forEach(x=>x.classList.toggle('on',x===b)); renderSurvey(); }));
 function renderTp(){
   $('tpSince').textContent=TP.since;
   $('tpKpis').innerHTML=tile('등록 인재',TP.users,null,'사람 수 (중복 제거)','명')+tile('등록 이력서',TP.docs,null,'확정 문서 수','건')+tile('연결 공고',TP.positions,null,'포지션 수','개');
@@ -1047,7 +1167,7 @@ function renderTp(){
   featHbar('cTpJob',v(TP.jobTitle)); featHbar('cTpSkill',v(TP.skills)); featHbar('cTpLic',v(TP.licenses));
   featHbar('cTpLang',[...TP.langExams.map(r=>({name:'시험 · '+r.name,v:r.n})),...TP.languages.map(r=>({name:'외국어 · '+r.name,v:r.n}))]);
 }
-function renderFeat(){ featCharts.forEach(c=>c.destroy()); featCharts=[]; renderIv(); renderTp(); bindTips(); }
+function renderFeat(){ featCharts.forEach(c=>c.destroy()); featCharts=[]; renderIv(); renderTp(); svSync(); bindTips(); }
 function homeInit(){
   document.getElementById('homeN').value=hstate.n; document.getElementById('homeN').max=_allD.length;
   const fi=document.getElementById('homeFrom'),ti=document.getElementById('homeTo'); fi.min=_minD; fi.max=_maxD; ti.min=_minD; ti.max=_maxD; fi.value=_maxD; ti.value=_maxD;

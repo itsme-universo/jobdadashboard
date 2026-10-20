@@ -49,4 +49,5 @@ jobs:
             🤖 Generated with [Claude Code](https://claude.com/claude-code)
           add-paths: |
             strategy/jobdabehavior/**
+            index.html
           delete-branch: true

@@ -139,4 +139,52 @@ async function buildTalentPool(db, kMin = K_MIN) {
     holding: ['careers', 'skills', 'licenses', 'langExams', 'projects', 'activities', 'attachments'].map((k) => ({ key: k, n: h[k] >= kMin || h[k] === 0 ? h[k] : null, of: h.n })) };
 }
 
-module.exports = { buildInterview, buildTalentPool };
+// ---- 면접연습 설문 (survey · survey_answer, 2026-10-16~) — 이탈 사유 · 완료 만족도 · 라이브 사전 신청
+//  survey_answer는 문항 1행 → submissionId로 묶어 응답 1회. userSn 미반출 · 자유서술은 원문 대신 건수만.
+//  응답률 분모: 이탈 = 연습 화면(표지·준비·카운트다운·연습 중)에서 '나가기 확정'(INTERVIEW_LEAVE). 설정 단계(1~5)에선 설문이 뜨지 않음
+//             완료 = 면접 완료(INTERVIEW_SESSION_DONE). 둘 다 설문 시작 시각(첫 응답) 이후만 센다.
+const SV_KEYS = { INTERVIEW_3D_EXIT: ['exit', '3d'], INTERVIEW_LIVE_EXIT: ['exit', 'live'], INTERVIEW_3D_COMPLETE: ['complete', '3d'], INTERVIEW_LIVE_COMPLETE: ['complete', 'live'], LIVE_INTERVIEW_PRE_REGISTRATION: ['pre', 'live'] };
+// 척도 문항은 문구로 식별 (3D/라이브 설문이 문항 id를 따로 가짐)
+const SV_SCALE = [['burden', '부담'], ['realism', '실제 면접처럼'], ['report', '강점과 약점'], ['intent', '질문 의도'], ['nps', '추천']];
+const scaleKey = (q) => (SV_SCALE.find(([, w]) => (q || '').includes(w)) || [])[0];
+async function buildSurvey(db) {
+  const keys = Object.keys(SV_KEYS);
+  const [defs, rows] = await Promise.all([
+    db.collection('survey').find({ surveyKey: { $in: keys } }, { projection: { _id: 0, surveyKey: 1, questionList: 1 } }).toArray(),
+    agg(db.collection('survey_answer'), [{ $match: { surveyKey: { $in: keys } } }, { $sort: { createdDateTime: 1 } }, { $project: { _id: 0, k: '$surveyKey', sub: '$submissionId', q: '$questionContent', sk: '$skipped',
+      step: '$context.exitStep', score: '$answer.score', opts: '$answer.optionList.optionKey', text: { $gt: [{ $strLenCP: { $ifNull: ['$answer.text', ''] } }, 0] }, d: kstDay('$createdDateTime'), t: '$createdDateTime' } }]),
+  ]);
+  const since = rows.length ? rows[0].t : new Date();
+  const tl = db.collection('tracking_log'), T = { timestamp: { $gte: since, $lte: new Date() } }; // 상한: 시계가 틀린 기기의 미래 시각 로그 제외
+  const [leave, done] = await Promise.all([
+    agg(tl, [{ $match: { ...T, eventTarget: 'INTERVIEW_LEAVE' } }, { $group: { _id: { d: kstDay('$timestamp'), s: { $cond: [{ $eq: [{ $type: '$metadata.step' }, 'string'] }, { $toUpper: '$metadata.step' }, 'SETUP'] } }, n: { $sum: 1 } } }]),
+    agg(tl, [{ $match: { ...T, eventTarget: 'INTERVIEW_SESSION_DONE' } }, { $group: { _id: kstDay('$timestamp'), n: { $sum: 1 } } }]),
+  ]);
+  // daily[d] = { leave:{단계:n}, done, 'exit:3d':{n,r,st,text}, 'complete:3d':{n,sc,chip,text}, 'pre:live':{n,o} ... }
+  const daily = {}, day = (d) => (daily[d] ??= { leave: {}, done: 0 });
+  const inc = (o, k, n = 1) => { o[k] = (o[k] || 0) + n; };
+  for (const r of leave) inc(day(r._id.d).leave, r._id.s, r.n);
+  for (const r of done) day(r._id).done = r.n;
+  const subs = new Map(); for (const r of rows) { const s = subs.get(r.sub) || { k: r.k, d: r.d, rows: [] }; s.rows.push(r); subs.set(r.sub, s); }
+  for (const s of subs.values()) {
+    const [kind, v] = SV_KEYS[s.k], g = (day(s.d)[kind + ':' + v] ??= { n: 0, text: 0 });
+    g.n++; g.text += s.rows.filter((r) => r.text).length;
+    if (kind === 'exit') { const r = s.rows[0], o = (!r.sk && r.opts && r.opts[0]) || 'NO_ANSWER', st = r.step || 'UNKNOWN';
+      inc(g.r ??= {}, o); inc((g.st ??= {})[st] ??= {}, o); }
+    else if (kind === 'complete') for (const r of s.rows) { if (r.sk) continue; const sk = scaleKey(r.q);
+      if (r.score != null && sk) inc((g.sc ??= {})[sk] ??= {}, r.score); else for (const o of r.opts || []) inc(g.chip ??= {}, o); }
+    else for (const r of s.rows) for (const o of r.opts || []) inc(g.o ??= {}, o);
+  }
+  // 선택지·척도 문항 라벨 (설문 정의 기준)
+  const labels = { exit: {}, chip: {}, pre: {}, scales: {} };
+  for (const d of defs) { const [kind] = SV_KEYS[d.surveyKey];
+    for (const q of d.questionList || []) {
+      const sk = q.answerType === 'SCALE' && scaleKey(q.content);
+      if (sk) labels.scales[sk] ??= { q: q.content, min: q.scaleMin, max: q.scaleMax };
+      else for (const o of q.optionList || []) labels[kind === 'complete' ? 'chip' : kind][o.optionKey] ??= o.content;
+    } }
+  labels.exit.NO_ANSWER = '응답 안 함';
+  return { since: since.toISOString(), asOf: new Date().toISOString(), daily, labels };
+}
+
+module.exports = { buildInterview, buildTalentPool, buildSurvey };
