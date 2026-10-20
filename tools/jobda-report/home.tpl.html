@@ -993,9 +993,12 @@ function renderIvFinding(){
   if(!V.from||V.to<IV_LAUNCH){ el.innerHTML=icon+'면접연습: 선택한 기간은 출시('+IV_LAUNCH+') 이전이라 데이터가 없습니다.'; return; }
   const ds=(IV.daily||[]).filter(r=>r._id>=V.from&&r._id<=V.to);
   const done=ds.reduce((t,r)=>t+(r.done||0),0), tokens=ds.reduce((t,r)=>t+(r.tokens||0),0);
-  let aOut=0,aIv=0; for(const e of V.edges){ if(e.from===A){ aOut+=e.n; if(e.to===G) aIv+=e.n; } }
+  // 전환율은 출시일 이후 이동만 센다 (출시 전 역검 이동이 분모에 섞이면 희석됨)
+  const cFrom=V.from<IV_LAUNCH?IV_LAUNCH:V.from, D=FLOWS.daily||{days:[],edges:{}};
+  let aOut=0,aIv=0; for(const d of D.days){ if(d<cFrom||d>V.to) continue;
+    for(const [f,t,n] of (D.edges[d]||[])){ if(f===A){ aOut+=n; if(t===G) aIv+=n; } } }
   el.innerHTML=icon+'면접연습 완료 <b class="hl">'+fmt.format(done)+'건</b> (토큰 사용 '+fmt.format(tokens)+'건). 역량검사 → 면접연습 전환율 <b class="hl">'+(aOut?(100*aIv/aOut).toFixed(1):'–')+'%</b> — 역검에서 다른 페이지로 나간 이동 '+fmt.format(aOut)+'건 중 '+fmt.format(aIv)+'건'
-    +(V.from<IV_LAUNCH?' (출시 이전 날짜 포함으로 희석)':'')+'.';
+    +(V.from<IV_LAUNCH?' (전환율은 출시일 '+IV_LAUNCH+' ~ '+V.to+' 기준)':'')+'.';
 }
 // 날짜 필터가 바뀌면 이동 경로 탭이 열려 있을 때 다시 그림
 function flowSync(){ const el=document.getElementById('tab-flow'); if(el&&!el.hidden){ hNetPick(); renderNet(); renderIvFlow(); } }
