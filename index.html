@@ -94,6 +94,8 @@
   .sv-up { color: var(--up); } .sv-down { color: var(--down); }
   @media (max-width: 520px) { .sv-row { grid-template-columns: 84px 1fr 76px; gap: 8px; } }
   .findings b.hl { background: #ffd83d; color: #111; padding: 0 5px; border-radius: 4px; }
+  .findings b.hl.iv { background: #4dff91; }
+  .findings b.hl.cm { background: #5cd6ff; }
 
   h2.section { font-size: 17px; font-weight: 700; letter-spacing: -0.3px; margin: 40px 0 4px; }
   p.section-desc { color: var(--muted); font-size: 13px; margin: 0 0 14px; max-width: 72ch; }
@@ -691,8 +693,8 @@ function render() {
     `기간 내 전체 페이지 방문 <b>${fmt.format(totalVisits)}회</b>. 방문의 약 99%가 데스크톱 — 역량검사(ACCA) 중심 트래픽 구조.`,
     `커리어메모리 방문 <b>${fmt.format(cmVisitsTotal)}회</b>, 주요 유입은 홈·ACCA(역량검사)·직접 유입 순. 역검 흐름에서 넘어오는 유입이 뚜렷함.`,
     `커리어메모리 평균 체류 <b>${Math.round((sum.avgDwellMs || 0) / 1000)}초</b>, 평균 스크롤 <b>${(sum.avgScroll || 0).toFixed(0)}%</b>. 다만 이탈의 <b>${rate(dwellShort, dwellTotal)}%</b>가 10초 미만 — 짧게 확인만 하고 나가는 방문이 다수.`,
-    `커리어메모리 완성률(기록 남김) <b>${rate(f.engaged, f.visitors)}%</b> — 방문자 ${fmt.format(f.visitors)}명 중 ${fmt.format(f.engaged)}명이 노트 저장 또는 자료 업로드.`,
-    `<span class="fi" aria-hidden="true">🚀</span>로켓지원(지원건=사용자×공고 단위): 총 시도 <b>${fmt.format(rfStart)}건</b> 중 최종 제출(크레딧 차감) <b class="hl">${fmt.format(rfSubmit)}건</b> = 전체 전환 <b>${rate(rfSubmit, rfStart)}%</b>. 가장 큰 이탈은 섹션 검토(${fmt.format(rfReview)}건)→제출로 <b>${rate(rfSubmit, rfReview)}%</b>만 통과.`,
+    `<span class="fi" aria-hidden="true">🧠</span><b class="hl cm">커리어메모리</b> 완성률(기록 남김) <b>${rate(f.engaged, f.visitors)}%</b> — 방문자 ${fmt.format(f.visitors)}명 중 <b class="hl cm">${fmt.format(f.engaged)}명</b>이 노트 저장 또는 자료 업로드.`,
+    `<span class="fi" aria-hidden="true">🚀</span><b class="hl">로켓지원</b>(지원건=사용자×공고 단위): 총 시도 <b>${fmt.format(rfStart)}건</b> 중 최종 제출(크레딧 차감) <b class="hl">${fmt.format(rfSubmit)}건</b> = 전체 전환 <b>${rate(rfSubmit, rfStart)}%</b>. 가장 큰 이탈은 섹션 검토(${fmt.format(rfReview)}건)→제출로 <b>${rate(rfSubmit, rfReview)}%</b>만 통과.`,
     `커리어메모리 방문자 중 로켓지원 시도 <b>${rate(L.both, L.cmUsers)}%</b>, 최종 제출 <b>${rate(L.cmAndSubmit, L.cmUsers)}%</b>.`,
   ].map((s) => `<li>${s}</li>`).join('') + '<li id="findIv"></li>';
 
@@ -1022,14 +1024,14 @@ function renderIvFinding(){
   const el=document.getElementById('findIv'); if(!el) return;
   const V=flowView(), G='면접연습', A='역량검사';
   const icon='<span class="fi" aria-hidden="true">🎤</span>';
-  if(!V.from||V.to<IV_LAUNCH){ el.innerHTML=icon+'면접연습: 선택한 기간은 출시('+IV_LAUNCH+') 이전이라 데이터가 없습니다.'; return; }
+  if(!V.from||V.to<IV_LAUNCH){ el.innerHTML=icon+'<b class="hl iv">면접연습</b>: 선택한 기간은 출시('+IV_LAUNCH+') 이전이라 데이터가 없습니다.'; return; }
   const ds=(IV.daily||[]).filter(r=>r._id>=V.from&&r._id<=V.to);
   const done=ds.reduce((t,r)=>t+(r.done||0),0), tokens=ds.reduce((t,r)=>t+(r.tokens||0),0);
   // 전환율은 출시일 이후 이동만 센다 (출시 전 역검 이동이 분모에 섞이면 희석됨)
   const cFrom=V.from<IV_LAUNCH?IV_LAUNCH:V.from, D=FLOWS.daily||{days:[],edges:{}};
   let aOut=0,aIv=0; for(const d of D.days){ if(d<cFrom||d>V.to) continue;
     for(const [f,t,n] of (D.edges[d]||[])){ if(f===A){ aOut+=n; if(t===G) aIv+=n; } } }
-  el.innerHTML=icon+'면접연습 완료 <b class="hl">'+fmt.format(done)+'건</b> (토큰 사용 '+fmt.format(tokens)+'건). 역량검사 → 면접연습 전환율 <b class="hl">'+(aOut?(100*aIv/aOut).toFixed(1):'–')+'%</b> — 역검에서 다른 페이지로 나간 이동 '+fmt.format(aOut)+'건 중 '+fmt.format(aIv)+'건'
+  el.innerHTML=icon+'<b class="hl iv">면접연습</b> 완료 <b class="hl iv">'+fmt.format(done)+'건</b> (토큰 사용 '+fmt.format(tokens)+'건). 역량검사 → 면접연습 전환율 <b class="hl iv">'+(aOut?(100*aIv/aOut).toFixed(1):'–')+'%</b> — 역검에서 다른 페이지로 나간 이동 '+fmt.format(aOut)+'건 중 '+fmt.format(aIv)+'건'
     +(V.from<IV_LAUNCH?' (전환율은 출시일 '+IV_LAUNCH+' ~ '+V.to+' 기준)':'')+'.';
 }
 // 날짜 필터가 바뀌면 이동 경로 탭이 열려 있을 때 다시 그림
