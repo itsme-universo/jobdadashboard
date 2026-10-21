@@ -1,9 +1,8 @@
 name: JOBDA 행동 리포트 일별 갱신
 
-# 매일 KST 08:00 (UTC 23:00) 자동 실행 + 수동 실행 가능
+# 수동 실행 전용. DB가 사내망 전용 주소(PrivateLink)라 GitHub 호스트 러너에서는 접속이 안 돼 예약 실행을 끔.
+# 일별 자동 갱신은 사내 PC 작업 스케줄러가 tools/jobda-report/daily-local.sh 를 매일 10:00 실행.
 on:
-  schedule:
-    - cron: '0 23 * * *'
   workflow_dispatch: {}
 
 permissions:
