@@ -6,7 +6,7 @@
 const fs = require('fs');
 const path = require('path');
 const { MongoClient } = require('mongodb');
-const { buildInterview, buildTalentPool, buildSurvey } = require('./features.cjs');
+const { buildInterview, buildTalentPool, buildSurvey, buildCmRange } = require('./features.cjs');
 
 const HERE = __dirname;
 const REPO = path.resolve(HERE, '..', '..');
@@ -407,7 +407,8 @@ ${latest ? `<a class="latest" href="${WEB}/${latest}/">최신 리포트 (${lates
   const uMap = byId(homeDash.dailyUsers, 'users'), sMap = byId(homeDash.dailySessions, 'sessions'), qMap = byId(homeDash.dailySearches, 'searches');
   const signMap = {}; for (const r of homeDash.authDaily) if (r._id.kind === 'signup') signMap[r._id.d] = (signMap[r._id.d] || 0) + r.n;
   const fullDaily = homeDash.dailyVisits.map((r) => ({ d: r._id, visits: r.visits, users: uMap[r._id] || 0, sessions: sMap[r._id] || 0, searches: qMap[r._id] || 0, signups: signMap[r._id] || 0, desktop: r.desktop || 0, mobile: r.mobile || 0, tablet: r.tablet || 0 }));
-  const HOME = { generatedAt: new Date().toISOString(), latest: latestDay, fullDaily, windowUsers, hourly, features: homeDash.features, topRoutes: homeDash.topRoutes, topKeywords: homeDash.topKeywords };
+  const cmRange = await buildCmRange(db, fullDaily.map((r) => r.d));
+  const HOME = { generatedAt: new Date().toISOString(), latest: latestDay, fullDaily, windowUsers, hourly, cmRange, features: homeDash.features, topRoutes: homeDash.topRoutes, topKeywords: homeDash.topKeywords };
   const homeOut = homeTpl
     .replace('__CHARTJS__', () => chartjs)
     .replace('__DATA__', () => noLt(JSON.stringify({ dashboard: homeDash, careerMemory: homeCm })))

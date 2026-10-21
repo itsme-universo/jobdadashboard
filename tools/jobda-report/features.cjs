@@ -187,4 +187,29 @@ async function buildSurvey(db) {
   return { since: since.toISOString(), asOf: new Date().toISOString(), daily, labels };
 }
 
-module.exports = { buildInterview, buildTalentPool, buildSurvey };
+// ---- 커리어메모리 완성률 (홈 날짜 필터용) — 기간 [a,b]마다 방문자 · 기록 남긴 사람(중복 제거) 정확값
+//  사람 수는 일별 합으로 중복 제거가 안 돼, 사람별 방문일·기록일로 모든 (시작,끝) 쌍을 미리 센다. 사람 식별자는 반출하지 않음
+//  사람 키·기록 정의는 build.cjs 커리어메모리 퍼널(cmFunnel)과 같음
+const CM_IDENT = { $ifNull: ['$userId', { $concat: ['s:', { $ifNull: ['$sessionId', '?'] }] }] };
+const CM_ENGAGE = ['MEMORY_NOTE_SAVE', 'MEMORY_FILE_UPLOAD', 'MEMORY_ATTACHMENT_UPLOAD'];
+async function buildCmRange(db, days) {
+  const idx = new Map(days.map((d, i) => [d, i])), N = days.length;
+  const dayIf = (cond) => ({ $addToSet: { $cond: [cond, kstDay('$timestamp'), '$$REMOVE'] } });
+  const users = await agg(db.collection('tracking_log'), [
+    { $match: { routeName: 'CAREER_MEMORY_SLUG', timestamp: { $gte: new Date(days[0] + 'T00:00:00+09:00'), $lte: new Date(days[N - 1] + 'T23:59:59.999+09:00') } } },
+    { $group: { _id: CM_IDENT, v: dayIf({ $eq: ['$eventType', 'VISIT'] }), e: dayIf({ $in: ['$eventTarget', CM_ENGAGE] }) } },
+    { $project: { _id: 0, v: 1, e: 1 } },
+  ]);
+  // 행 a = 시작일, 열 b-a = 끝일. 사람마다 a 이후 첫 해당일에 +1 → 끝일 방향 누적합 = 기간 안에 하루라도 해당한 사람 수
+  const count = (key) => {
+    const m = Array.from({ length: N }, () => new Int32Array(N));
+    for (const u of users) {
+      const ds = u[key].map((d) => idx.get(d)).filter((i) => i != null).sort((x, y) => x - y);
+      for (let a = 0, j = 0; a < N && j < ds.length; a++) { while (j < ds.length && ds[j] < a) j++; if (j < ds.length) m[a][ds[j]]++; }
+    }
+    return m.map((row, a) => { const out = []; let s = 0; for (let b = a; b < N; b++) out.push(s += row[b]); return out; });
+  };
+  return { days, visitors: count('v'), engaged: count('e') };
+}
+
+module.exports = { buildInterview, buildTalentPool, buildSurvey, buildCmRange };

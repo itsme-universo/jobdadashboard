@@ -671,7 +671,7 @@ function render() {
     `기간 내 전체 페이지 방문 <b>${fmt.format(totalVisits)}회</b>. 방문의 약 99%가 데스크톱 — 역량검사(ACCA) 중심 트래픽 구조.`,
     `커리어메모리 방문 <b>${fmt.format(cmVisitsTotal)}회</b>, 주요 유입은 홈·ACCA(역량검사)·직접 유입 순. 역검 흐름에서 넘어오는 유입이 뚜렷함.`,
     `커리어메모리 평균 체류 <b>${Math.round((sum.avgDwellMs || 0) / 1000)}초</b>, 평균 스크롤 <b>${(sum.avgScroll || 0).toFixed(0)}%</b>. 다만 이탈의 <b>${rate(dwellShort, dwellTotal)}%</b>가 10초 미만 — 짧게 확인만 하고 나가는 방문이 다수.`,
-    `<span class="fi" aria-hidden="true">🧠</span><b class="hl cm">커리어메모리</b> 완성률(기록 남김) <b>${rate(f.engaged, f.visitors)}%</b> — 방문자 ${fmt.format(f.visitors)}명 중 <b class="hl cm">${fmt.format(f.engaged)}명</b>이 노트 저장 또는 자료 업로드.`,
+    `<span id="findCm"><span class="fi" aria-hidden="true">🧠</span><b class="hl cm">커리어메모리</b> 완성률(기록 남김) <b>${rate(f.engaged, f.visitors)}%</b> — 방문자 ${fmt.format(f.visitors)}명 중 <b class="hl cm">${fmt.format(f.engaged)}명</b>이 노트 저장 또는 자료 업로드.</span>`,
     `<span class="fi" aria-hidden="true">🚀</span><b class="hl">로켓지원</b>(지원건=사용자×공고 단위): 총 시도 <b>${fmt.format(rfStart)}건</b> 중 최종 제출(크레딧 차감) <b class="hl">${fmt.format(rfSubmit)}건</b> = 전체 전환 <b>${rate(rfSubmit, rfStart)}%</b>. 가장 큰 이탈은 섹션 검토(${fmt.format(rfReview)}건)→제출로 <b>${rate(rfSubmit, rfReview)}%</b>만 통과.`,
     `커리어메모리 방문자 중 로켓지원 시도 <b>${rate(L.both, L.cmUsers)}%</b>, 최종 제출 <b>${rate(L.cmAndSubmit, L.cmUsers)}%</b>.`,
   ].map((s) => `<li>${s}</li>`).join('') + '<li id="findIv"></li>';
@@ -897,6 +897,7 @@ function renderHome(userAction){
   hChips();
   flowSync();
   renderIvFinding();
+  renderCmFinding();
   svSync();
   const N=hstate.mode==='custom'?null:hstate.n; const wu=HOME.windowUsers||{}; let uv=null,un='';
   if(N!=null&&wu[N]!=null){uv=wu[N];un='정확(중복 제거)';}
@@ -996,6 +997,13 @@ function flowView(){
     for(const [g,v] of Object.entries(D.exits[d]||{})) ex[g]=(ex[g]||0)+v; }
   const edges=[...em].map(([k,n])=>{ const [f,t]=k.split('\u0001'); return {from:f,to:t,n}; }).sort((x,y)=>y.n-x.n);
   _fv={from,to,edges,nodes:Object.entries(nv).map(([name,visits])=>({name,visits})),exits:ex}; _fvKey=key; return _fv;
+}
+// 핵심 요약 · 커리어메모리 완성률 (날짜 필터 기간) — 사람 수는 빌드 때 기간별로 미리 센 정확값
+function renderCmFinding(){
+  const el=document.getElementById('findCm'), R=HOME.cmRange, rows=hRows(); if(!el||!R||!rows.length) return;
+  const a=R.days.indexOf(rows[0].d), b=R.days.indexOf(rows[rows.length-1].d); if(a<0||b<a) return;
+  const v=R.visitors[a][b-a], e=R.engaged[a][b-a];
+  el.innerHTML='<span class="fi" aria-hidden="true">🧠</span><b class="hl cm">커리어메모리</b> 완성률(기록 남김) <b>'+rate(e,v)+'%</b> — 방문자 '+fmt.format(v)+'명 중 <b class="hl cm">'+fmt.format(e)+'명</b>이 노트 저장 또는 자료 업로드.';
 }
 // 핵심 요약 · 면접연습 (날짜 필터 기간) — 완료 수 + 역량검사→면접연습 전환율
 function renderIvFinding(){
