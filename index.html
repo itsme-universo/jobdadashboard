@@ -188,7 +188,7 @@
   .chip.on { background:var(--s1); color:#fff; border-color:transparent; font-weight:600; }
   .chip.ms { border-style:dashed; }
   .chip.ms.on { border-style:solid; }
-  .chips .chip-sep { width:1px; align-self:stretch; background:var(--border); margin:0 4px; }
+  .fbreak { flex-basis:100%; height:0; }
   .fgroup { display:flex; align-items:center; gap:6px; font-size:13px; color:var(--ink-2); }
   .fgroup input { font:inherit; font-size:13px; padding:5px 9px; border-radius:8px; border:1px solid var(--border); background:var(--page); color:var(--ink); }
   .fgroup input[type=number]{ width:62px; }
@@ -244,6 +244,8 @@
     <div class="fgroup">최근 <input type="number" id="homeN" min="1" max="365"> 일</div>
     <div class="fdiv"></div>
     <div class="fgroup"><input type="date" id="homeFrom"> ~ <input type="date" id="homeTo"></div>
+    <div class="fbreak"></div>
+    <div class="chips" id="homeMs"></div>
     <span class="frange" id="homeRange"></span>
   </div>
 
@@ -899,10 +901,10 @@ const PRESETS=[{d:1,l:'1일'},{d:3,l:'3일'},{d:7,l:'7일'},{d:14,l:'2주'},{d:3
 const MILESTONES=[{d:'2026-08-27',l:'🚀 로켓지원 출시 이후',t:'로켓지원 출시일(8/27) ~ 최신일'},{d:'2026-10-15',l:'🎤 면접연습 출시 이후',t:'면접연습 1차 출시일(10/15) ~ 최신일'}];
 let hstate={mode:'preset',n:14,from:null,to:null};
 function hRows(){ let from,to; if(hstate.mode==='custom'){from=hstate.from;to=hstate.to;} else {to=_maxD;from=_add(_maxD,-(hstate.n-1)); if(from<_minD)from=_minD;} return _daily.filter(r=>r.d>=from&&r.d<=to); }
-function hChips(){ const c=document.getElementById('homeChips'); c.innerHTML=PRESETS.map(p=>'<button class="chip'+(hstate.mode==='preset'&&hstate.n===p.d?' on':'')+'" data-d="'+p.d+'">'+p.l+'</button>').join('')
-    +'<span class="chip-sep" aria-hidden="true"></span>'+MILESTONES.map(m=>'<button class="chip ms'+(hstate.mode==='custom'&&hstate.from===m.d&&hstate.to===_maxD?' on':'')+'" data-m="'+m.d+'" title="'+m.t+'">'+m.l+'</button>').join('');
+function hChips(){ const c=document.getElementById('homeChips'), ms=document.getElementById('homeMs'); c.innerHTML=PRESETS.map(p=>'<button class="chip'+(hstate.mode==='preset'&&hstate.n===p.d?' on':'')+'" data-d="'+p.d+'">'+p.l+'</button>').join('');
+  ms.innerHTML=MILESTONES.map(m=>'<button class="chip ms'+(hstate.mode==='custom'&&hstate.from===m.d&&hstate.to===_maxD?' on':'')+'" data-m="'+m.d+'" title="'+m.t+'">'+m.l+'</button>').join('');
   c.querySelectorAll('.chip[data-d]').forEach(b=>b.addEventListener('click',()=>{ hstate.mode='preset'; hstate.n=+b.dataset.d; document.getElementById('homeN').value=hstate.n; renderHome(true); }));
-  c.querySelectorAll('.chip[data-m]').forEach(b=>b.addEventListener('click',()=>{ hstate.mode='custom'; hstate.from=b.dataset.m<_minD?_minD:b.dataset.m; hstate.to=_maxD;
+  ms.querySelectorAll('.chip[data-m]').forEach(b=>b.addEventListener('click',()=>{ hstate.mode='custom'; hstate.from=b.dataset.m<_minD?_minD:b.dataset.m; hstate.to=_maxD;
     document.getElementById('homeFrom').value=hstate.from; document.getElementById('homeTo').value=hstate.to; renderHome(true); })); }
 function renderHome(userAction){
   homeCharts.forEach(c=>c.destroy()); homeCharts=[];
