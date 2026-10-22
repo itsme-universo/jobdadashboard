@@ -6,7 +6,7 @@
 const fs = require('fs');
 const path = require('path');
 const { MongoClient } = require('mongodb');
-const { buildInterview, buildTalentPool, buildSurvey, buildCmRange } = require('./features.cjs');
+const { buildInterview, buildTalentPool, buildSurvey, buildCmRange, buildIvDesign } = require('./features.cjs');
 
 const HERE = __dirname;
 const REPO = path.resolve(HERE, '..', '..');
@@ -402,7 +402,7 @@ ${latest ? `<a class="latest" href="${WEB}/${latest}/">최신 리포트 (${lates
   const homeSubmits = { period: `${START} ~ ${latestDay}`, total: homeRows.reduce((s, r) => s + r.count, 0), note: SUBNOTE, rows: homeRows };
   const windowUsers = await computeWindowUsers(db, latestDay);
   const hourly = await buildHourly(db);
-  const [interview, talentPool, survey] = await Promise.all([buildInterview(db), buildTalentPool(db), buildSurvey(db)]);
+  const [interview, talentPool, survey, ivDesign] = await Promise.all([buildInterview(db), buildTalentPool(db), buildSurvey(db), buildIvDesign(db, { to: latestDay })]);
   const byId = (arr, k) => Object.fromEntries(arr.map((r) => [r._id, r[k]]));
   const uMap = byId(homeDash.dailyUsers, 'users'), sMap = byId(homeDash.dailySessions, 'sessions'), qMap = byId(homeDash.dailySearches, 'searches');
   const signMap = {}; for (const r of homeDash.authDaily) if (r._id.kind === 'signup') signMap[r._id.d] = (signMap[r._id.d] || 0) + r.n;
@@ -418,7 +418,8 @@ ${latest ? `<a class="latest" href="${WEB}/${latest}/">최신 리포트 (${lates
     .replace('__FLOWS__', () => noLt(JSON.stringify(flows)))
     .replace('__INTERVIEW__', () => noLt(JSON.stringify(interview)))
     .replace('__TALENT__', () => noLt(JSON.stringify(talentPool)))
-    .replace('__SURVEY__', () => noLt(JSON.stringify(survey)));
+    .replace('__SURVEY__', () => noLt(JSON.stringify(survey)))
+    .replace('__IVDESIGN__', () => noLt(JSON.stringify(ivDesign)));
   const homeDoc = `<!DOCTYPE html>\n<html lang="ko" data-theme="dark">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<meta name="robots" content="noindex">\n</head>\n<body>\n${homeOut}\n</body>\n</html>\n`;
   fs.writeFileSync(path.join(REPO, 'index.html'), homeDoc); // 사이트 루트 = HOME
   console.log('면접연습 토큰 사용', interview.totals.tokens, '· 인재풀', talentPool.users, '명', talentPool.gated ? '(분포 비공개: 5명 미만)' : '');

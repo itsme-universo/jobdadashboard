@@ -187,6 +187,92 @@ async function buildSurvey(db) {
   return { since: since.toISOString(), asOf: new Date().toISOString(), daily, labels };
 }
 
+// ---- 면접연습 질문 설계 (질문별 이탈 · 답변 시간 · 완료) — 세트(assignmentSetSn) 단위
+//  대상: [from, to] KST에 만든 세트(INTERVIEW_SET_CREATE COMPLETE). 완료 여부는 집계 시각까지의 기록으로 판단(이어하기로 나중에 끝낸 것도 완료)
+//  시작 = 첫 질문 노출(INTERVIEW_QUESTION) · 완료 = 결과표 생성 요청(INTERVIEW_REPORT_CREATE) · 진행 = 제출한 답변 수(ANSWER_SUBMIT COMPLETE)
+//  답변의 질문 유형 = 답변 시작 시각(제출 시각 − answerMs) 직전에 뜬 질문. qIndex는 다음 질문 번호로 찍히는 경우가 섞여 쓰지 않음
+//  사내 추정 계정 제외: 10/14 이후 서로 다른 계정 IV_INTERNAL_MIN명 이상이 세트를 만든 IP를 사내로 보고, 그 IP로 면접 이벤트를 남긴 계정 전부
+//   (면접 이벤트 전체로 세면 통신사 공용 IP까지 걸려 수백 명이 빠짐)
+const IV_POS = ['자기소개', '직무 질문 1', '꼬리 질문 1', '직무 질문 2', '꼬리 질문 2', '직무 질문 3', '꼬리 질문 3', '직무 질문 4', '꼬리 질문 4'];
+const IV_QTYPE = { self_intro: '자기소개', job: '직무 질문', follow_up: '꼬리 질문', onboarding: '온보딩 질문' };
+const IV_INTERNAL_MIN = 5;
+const quant = (xs, p) => { if (!xs.length) return null; const s = [...xs].sort((a, b) => a - b); return s[Math.max(0, Math.ceil(s.length * p) - 1)]; }; // 최근접 순위
+const r1 = (x) => (x == null ? null : Math.round(x * 10) / 10), r3 = (x) => Math.round(x * 1000) / 1000;
+async function buildIvDesign(db, { from = '2026-10-15', to, cutoff = new Date(), internalMin = IV_INTERNAL_MIN } = {}) {
+  const tl = db.collection('tracking_log');
+  const T = { $gte: new Date(from + 'T00:00:00+09:00'), $lte: new Date(to + 'T23:59:59.999+09:00') };
+  // 사내 추정 계정
+  const since14 = { $gte: new Date('2026-10-14T00:00:00+09:00'), $lte: cutoff };
+  const ips = (await agg(tl, [{ $match: { timestamp: since14, eventTarget: 'INTERVIEW_SET_CREATE', eventType: 'COMPLETE', userSn: { $gt: 0 } } },
+    { $group: { _id: '$clientIp', u: { $addToSet: '$userSn' } } }, { $match: { $expr: { $gte: [{ $size: '$u' }, internalMin] } } }])).map((r) => r._id);
+  const internal = new Set(ips.length ? (await agg(tl, [{ $match: { timestamp: since14, clientIp: { $in: ips }, eventTarget: { $regex: '^INTERVIEW_' }, userSn: { $gt: 0 } } }, { $group: { _id: '$userSn' } }])).map((r) => r._id) : []);
+  const sets = (await agg(tl, [{ $match: { timestamp: T, eventTarget: 'INTERVIEW_SET_CREATE', eventType: 'COMPLETE', 'metadata.assignmentSetSn': { $ne: null } } },
+    { $project: { _id: 0, sn: '$metadata.assignmentSetSn', u: '$userSn', flow: '$metadata.flow', qc: '$metadata.questionCount', t: '$timestamp' } }])).filter((s) => !internal.has(s.u));
+  const bySn = new Map(sets.map((s) => [s.sn, { ...s, q: [], a: [], retry: [], start: null, report: false, resume: false }]));
+  const ev = await agg(tl, [{ $match: { timestamp: { $gte: T.$gte, $lte: cutoff }, 'metadata.assignmentSetSn': { $in: [...bySn.keys()] },
+    eventTarget: { $in: ['INTERVIEW_QUESTION', 'INTERVIEW_ANSWER_SUBMIT', 'INTERVIEW_ANSWER_RETRY', 'INTERVIEW_REPORT_CREATE', 'INTERVIEW_ATTEMPT_START', 'INTERVIEW_RESUME'] } } },
+    { $project: { _id: 0, sn: '$metadata.assignmentSetSn', e: '$eventTarget', y: '$eventType', t: '$timestamp', qt: '$metadata.questionType', ms: '$metadata.answerMs', to: '$metadata.timedOut', mode: '$metadata.answerMode' } }, { $sort: { t: 1 } }]);
+  for (const x of ev) { const s = bySn.get(x.sn); if (!s) continue;
+    if (x.e === 'INTERVIEW_QUESTION') s.q.push({ t: x.t, qt: x.qt });
+    else if (x.e === 'INTERVIEW_ANSWER_SUBMIT' && x.y === 'COMPLETE') s.a.push(x);
+    else if (x.e === 'INTERVIEW_ANSWER_RETRY') s.retry.push(x);
+    else if (x.e === 'INTERVIEW_REPORT_CREATE') { if (!s.report) s.reportT = x.t; s.report = true; }
+    else if (x.e === 'INTERVIEW_ATTEMPT_START') s.start ??= x.t;
+    else if (x.e === 'INTERVIEW_RESUME') s.resume = true; }
+  const qAt = (s, t) => { let q = null; for (const x of s.q) { if (x.t <= t) q = x; else break; } return q; };
+  const all = [...bySn.values()], started = all.filter((s) => s.q.length), done = started.filter((s) => s.report), drop = started.filter((s) => !s.report);
+  const isQ5 = (s) => s.flow === 'standard' && s.qc === 5;
+  const grp = (s) => (isQ5(s) ? 'standard_q5' : s.flow === 'onboarding' ? 'onboarding' : 'other');
+  // 1. 질문 순서별 이탈 (일반 · 질문 수 5) — 그만둔 연습은 답변 수+1번째 질문을 보다가 멈춤, 끝낸 연습은 마지막으로 답한 질문까지 옴
+  const q5 = started.filter(isQ5);
+  const dropoff = IV_POS.map((name, i) => ({ position: i + 1, question: name, reached: q5.filter((s) => (s.report ? s.a.length >= i + 1 : s.a.length >= i)).length, dropped: q5.filter((s) => !s.report && s.a.length === i).length }));
+  // 날짜 필터용: 세트를 만든 날(KST)별 도달·이탈 — 세트 단위라 기간 합산이 정확함
+  const dropDaily = {};
+  for (const s of q5) { const d = new Date(s.t.getTime() + 9 * 3600e3).toISOString().slice(0, 10), o = (dropDaily[d] ??= { r: IV_POS.map(() => 0), x: IV_POS.map(() => 0) });
+    IV_POS.forEach((_, i) => { if (s.report ? s.a.length >= i + 1 : s.a.length >= i) o.r[i]++; if (!s.report && s.a.length === i) o.x[i]++; }); }
+  const answerCountQ5 = Object.entries(q5.filter((s) => s.report).reduce((m, s) => (m[s.a.length] = (m[s.a.length] || 0) + 1, m), {})).map(([answers, n]) => ({ answers: +answers, sets: n }));
+  // 2. 흐름별 끝냄 · 그만둠 (+ 사람)
+  const G = { standard_q5: '일반 · 질문 수 5', onboarding: '내 직무 찾기', other: '그 밖의 일반 · 후속 연습' };
+  const summary = Object.keys(G).map((k) => { const st = started.filter((s) => grp(s) === k), c = st.filter((s) => s.report).length; return { key: k, group: G[k], started: st.length, completed: c, dropped: st.length - c }; });
+  summary.push({ key: 'all_sets', group: '연습 세트 전체', started: started.length, completed: done.length, dropped: drop.length });
+  const pStart = new Set(started.map((s) => s.u)), pDone = new Set(done.map((s) => s.u));
+  summary.push({ key: 'people', group: '사람', started: pStart.size, completed: pDone.size, dropped: pStart.size - pDone.size });
+  // 3. 흐름별 구성과 소요 시간 (끝낸 연습, 소요 = 첫 응시 시작 → 결과표 요청, 이어하기 없는 것만)
+  const CG = [['standard_q5', '일반 · 질문 수 5', (s) => isQ5(s)], ['standard_q4', '일반 · 질문 수 4', (s) => s.flow === 'standard' && s.qc === 4], ['standard_q3', '일반 · 질문 수 3', (s) => s.flow === 'standard' && s.qc === 3],
+    ['standard_q2', '일반 · 질문 수 2', (s) => s.flow === 'standard' && s.qc === 2], ['onboarding', '내 직무 찾기', (s) => s.flow === 'onboarding']];
+  const composition = CG.map(([key, group, f]) => { const ss = done.filter(f), ans = ss.map((s) => s.a.length), mins = ss.filter((s) => !s.resume && s.start && s.reportT).map((s) => (s.reportT - s.start) / 60000);
+    return { key, group, completed_sets: ss.length, answers_median: quant(ans, 0.5), answers_mean: r1(ans.reduce((a, b) => a + b, 0) / (ans.length || 1)), minutes_median: r1(quant(mins, 0.5)), minutes_p25: r1(quant(mins, 0.25)), minutes_p75: r1(quant(mins, 0.75)), timed_sets: mins.length }; });
+  // 4. 질문 수별 완료 (사람별 첫 연습이 일반 흐름인 경우)
+  const firstStd = new Map(); for (const s of [...all].sort((a, b) => a.t - b.t)) if (!firstStd.has(s.u)) firstStd.set(s.u, s);
+  for (const [u, s] of firstStd) if (s.flow !== 'standard' || !s.q.length) firstStd.delete(u);
+  const byQc = [5, 4, 3, 2].map((qc) => { const ss = [...firstStd.values()].filter((s) => s.qc === qc); return { question_count: qc, started: ss.length, completed: ss.filter((s) => s.report).length }; });
+  // 5. 한 번도 못 끝낸 사람의 최대 답변 수
+  const maxA = new Map(); for (const s of started) if (!pDone.has(s.u)) maxA.set(s.u, Math.max(maxA.get(s.u) ?? 0, s.a.length));
+  const never = Object.entries([...maxA.values()].reduce((m, n) => (m[n] = (m[n] || 0) + 1, m), {})).map(([k, n]) => ({ max_answers: +k, users: n }));
+  // 6. 답변 시간 — 질문 유형별(모든 흐름) · 질문 순서별(일반 흐름 영상)
+  const answers = started.flatMap((s) => s.a.map((a, i) => ({ s, i, sec: a.ms / 1000, to: !!a.to, mode: a.mode === 'text' ? 'text' : 'video', qt: (qAt(s, new Date(a.t - (a.ms || 0))) || {}).qt })));
+  const tstat = (xs, limit) => { const sec = xs.filter((a) => a.sec >= 0).map((a) => a.sec); return { answers: xs.length, p25_sec: r1(quant(sec, 0.25)), median_sec: r1(quant(sec, 0.5)), p75_sec: r1(quant(sec, 0.75)), p90_sec: r1(quant(sec, 0.9)),
+    timed_out_rate: xs.length ? r3(xs.filter((a) => a.to).length / xs.length) : null, over80_rate: limit === 90 && sec.length ? r3(sec.filter((x) => x >= 80).length / sec.length) : null, under20_rate: sec.length ? r3(sec.filter((x) => x < 20).length / sec.length) : null }; };
+  const byType = []; for (const [mode, label, limit] of [['video', '영상', 90], ['text', '텍스트', 300]]) {
+    for (const qt of Object.keys(IV_QTYPE)) byType.push({ key: mode + '_' + qt, mode: label, limit_sec: limit, question_type: qt, type_label: IV_QTYPE[qt], ...tstat(answers.filter((a) => a.mode === mode && a.qt === qt), limit) });
+    byType.push({ key: mode + '_all', mode: label, limit_sec: limit, question_type: 'all', type_label: label + ' 전체', ...tstat(answers.filter((a) => a.mode === mode), limit) }); }
+  const byPos = IV_POS.map((name, i) => ({ position: i + 1, question: name, ...tstat(answers.filter((a) => a.s.flow === 'standard' && a.mode === 'video' && a.i === i), 90) }));
+  // 7. 질문 유형별 다시하기 (다시하기 직전에 뜬 질문 기준, 영상·텍스트 합산)
+  const retries = started.flatMap((s) => s.retry.map((r) => (qAt(s, r.t) || {}).qt));
+  const retry = Object.keys(IV_QTYPE).map((qt) => ({ question_type: qt, type_label: IV_QTYPE[qt], retries: retries.filter((x) => x === qt).length, answers: answers.filter((a) => a.qt === qt).length }));
+  // 8. 시간 초과와 완료
+  const timedOut = (ss) => (ss.length ? r3(ss.filter((s) => s.a.some((a) => a.to)).length / ss.length) : null);
+  const dropA = drop.filter((s) => s.a.length);
+  const timeout = [{ key: 'completed', group: '끝낸 연습', sets: done.length, timed_out_rate: timedOut(done) }, { key: 'dropped_answered', group: '그만둔 연습(답변 1개 이상)', sets: dropA.length, timed_out_rate: timedOut(dropA) }];
+  // 9. 진입에서 연습까지 (사람)
+  //  사람 = 로그인 계정, 비로그인은 세션 (세션 안에서 로그인했으면 그 계정으로 합침)
+  const [ent] = await agg(tl, [{ $match: { timestamp: T, eventTarget: 'INTERVIEW_ENTRY', eventType: 'CLICK', clientIp: { $nin: ips } } }, { $group: { _id: '$sessionId', u: { $max: '$userSn' } } },
+    { $match: { u: { $nin: [...internal] } } }, { $group: { _id: { $cond: [{ $gt: [{ $ifNull: ['$u', 0] }, 0] }, { $toString: '$u' }, { $concat: ['s:', { $ifNull: ['$_id', '?'] }] }] } } }, { $count: 'n' }]);
+  const funnel = [{ key: 'entry', stage: '면접 연습 진입', people: ent ? ent.n : 0 }, { key: 'set_created', stage: '연습 세트 생성', people: new Set(all.map((s) => s.u)).size },
+    { key: 'first_question', stage: '첫 질문 노출', people: pStart.size }, { key: 'completed', stage: '연습 1회 이상 끝냄', people: pDone.size }];
+  return { from, to, asOf: cutoff.toISOString(), internalAccounts: internal.size, pos: IV_POS, dropoff, dropDaily, answerCountQ5: answerCountQ5.sort((a, b) => a.answers - b.answers), summary, composition, byQc, never: never.sort((a, b) => a.max_answers - b.max_answers), byType, byPos, retry, timeout, funnel };
+}
+
 // ---- 커리어메모리 완성률 (홈 날짜 필터용) — 기간 [a,b]마다 방문자 · 기록 남긴 사람(중복 제거) 정확값
 //  사람 수는 일별 합으로 중복 제거가 안 돼, 사람별 방문일·기록일로 모든 (시작,끝) 쌍을 미리 센다. 사람 식별자는 반출하지 않음
 //  사람 키·기록 정의는 build.cjs 커리어메모리 퍼널(cmFunnel)과 같음
@@ -212,4 +298,4 @@ async function buildCmRange(db, days) {
   return { days, visitors: count('v'), engaged: count('e') };
 }
 
-module.exports = { buildInterview, buildTalentPool, buildSurvey, buildCmRange };
+module.exports = { buildInterview, buildTalentPool, buildSurvey, buildCmRange, buildIvDesign };
