@@ -6,7 +6,7 @@
 const fs = require('fs');
 const path = require('path');
 const { MongoClient } = require('mongodb');
-const { buildInterview, buildTalentPool, buildSurvey, buildCmRange, buildIvDesign } = require('./features.cjs');
+const { buildActiveUsers, buildInterview, buildTalentPool, buildSurvey, buildCmRange, buildIvDesign } = require('./features.cjs');
 
 const HERE = __dirname;
 const REPO = path.resolve(HERE, '..', '..');
@@ -401,6 +401,7 @@ ${latest ? `<a class="latest" href="${WEB}/${latest}/">최신 리포트 (${lates
   const homeRows = submitRows.filter((r) => r.day <= latestDay);
   const homeSubmits = { period: `${START} ~ ${latestDay}`, total: homeRows.reduce((s, r) => s + r.count, 0), note: SUBNOTE, rows: homeRows };
   const windowUsers = await computeWindowUsers(db, latestDay);
+  const activeUsers = await buildActiveUsers(db, latestDay);
   const hourly = await buildHourly(db);
   const [interview, talentPool, survey, ivDesign] = await Promise.all([buildInterview(db), buildTalentPool(db), buildSurvey(db), buildIvDesign(db, { to: latestDay })]);
   const byId = (arr, k) => Object.fromEntries(arr.map((r) => [r._id, r[k]]));
@@ -408,7 +409,7 @@ ${latest ? `<a class="latest" href="${WEB}/${latest}/">최신 리포트 (${lates
   const signMap = {}; for (const r of homeDash.authDaily) if (r._id.kind === 'signup') signMap[r._id.d] = (signMap[r._id.d] || 0) + r.n;
   const fullDaily = homeDash.dailyVisits.map((r) => ({ d: r._id, visits: r.visits, users: uMap[r._id] || 0, sessions: sMap[r._id] || 0, searches: qMap[r._id] || 0, signups: signMap[r._id] || 0, desktop: r.desktop || 0, mobile: r.mobile || 0, tablet: r.tablet || 0 }));
   const cmRange = await buildCmRange(db, fullDaily.map((r) => r.d));
-  const HOME = { generatedAt: new Date().toISOString(), latest: latestDay, fullDaily, windowUsers, hourly, cmRange, features: homeDash.features, topRoutes: homeDash.topRoutes, topKeywords: homeDash.topKeywords };
+  const HOME = { generatedAt: new Date().toISOString(), latest: latestDay, fullDaily, windowUsers, activeUsers, hourly, cmRange, features: homeDash.features, topRoutes: homeDash.topRoutes, topKeywords: homeDash.topKeywords };
   const homeOut = homeTpl
     .replace('__CHARTJS__', () => chartjs)
     .replace('__DATA__', () => noLt(JSON.stringify({ dashboard: homeDash, careerMemory: homeCm })))

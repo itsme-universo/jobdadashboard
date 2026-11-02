@@ -267,6 +267,26 @@
     </div>
   </div>
 
+  <h2 class="section" style="margin-top:22px">활성 사용자 · DAU · WAU · MAU <span class="tip" data-tip="로그인 사용자(userSn) 기준 중복 제거 사람 수. DAU=그날, WAU=그날 포함 직전 7일, MAU=그날 포함 직전 30일에 1번 이상 접속한 사람. 비로그인 방문자는 날짜를 넘어 같은 사람으로 묶을 식별자가 없어 제외됩니다(최근 페이지뷰의 약 25~45%가 비로그인). 데이터가 8/27부터라 9/25 이전의 30일 MAU는 표시하지 않습니다.">ⓘ</span></h2>
+  <div class="kpis" id="auKpis"></div>
+  <div class="grid">
+    <div class="card wide">
+      <h3>DAU · WAU(7일) · MAU(30일) 추이</h3><p class="desc" id="auDesc">선택 기간 · 막대 = DAU(왼쪽 축) · 선 = 직전 7일/30일 순사용자(오른쪽 축)</p>
+      <div class="plot" style="height:280px"><canvas id="cAu"></canvas></div>
+      <details class="tbl"><summary>표 보기</summary><div class="scroll" id="tAu"></div></details>
+    </div>
+    <div class="card">
+      <h3>고착도 (DAU / MAU) <span class="tip" data-tip="그날 DAU ÷ 직전 30일 MAU. 월간 사용자 중 하루에 들어오는 비율로, 높을수록 자주 돌아오는 서비스. 일반적인 SNS는 50%+, 필요할 때만 쓰는 서비스는 10% 미만이 흔합니다." tabindex="0">ⓘ</span></h3>
+      <p class="desc">선택 기간 일별</p>
+      <div class="plot" style="height:220px"><canvas id="cAuStick"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>월별 MAU · 주별 WAU</h3>
+      <p class="desc">달력 월(1일~말일) · 주(월~일) 기준 순사용자 — 집계 일수가 모자란 달·주는 표시</p>
+      <div class="scroll" id="tAuMonthly"></div>
+    </div>
+  </div>
+
   <nav class="subtabs" id="subtabs">
     <a href="#" data-t="overview" class="active">전체 개요</a>
     <a href="#" data-t="cm">커리어메모리</a>
@@ -958,7 +978,40 @@ function renderHome(userAction){
     const dline=(l,d,c)=>({label:l,data:d,borderColor:c,backgroundColor:c,borderWidth:2,pointRadius:rows.length>60?0:2,pointHoverRadius:5,tension:.15,pointBackgroundColor:c,pointBorderColor:cssVar('--surface'),pointBorderWidth:2});
     homeCharts.push(new Chart(document.getElementById('cHomeTrend'),{type:'line',data:{labels,datasets:[dline('방문',rows.map(r=>r.visits),cssVar('--s1')),dline('세션',rows.map(r=>r.sessions),cssVar('--s2')),dline('순 사용자(일)',rows.map(r=>r.users),cssVar('--s3')),dline('가입',rows.map(r=>r.signups),cssVar('--s5'))]},options:baseOptions()}));
   }
+  renderAu(rows);
   bindTips();
+}
+// 활성 사용자 (DAU·WAU·MAU) — 날짜 필터 연동
+let auCharts=[];
+function renderAu(rows){
+  auCharts.forEach(c=>c.destroy()); auCharts=[];
+  const A=HOME.activeUsers; if(!A||!A.daily||!$('cAu')) return;
+  const set=new Set(rows.map(r=>r.d)); const D=A.daily.filter(x=>set.has(x.d)); if(!D.length) return;
+  const L=D[D.length-1], P=A.daily[A.daily.indexOf(L)-1];
+  const stick=(x)=>x.full30&&x.mau30?Math.round(1000*x.dau/x.mau30)/10:null;
+  const avgDau=Math.round(D.reduce((s,x)=>s+x.dau,0)/D.length);
+  const sv=D.map(stick).filter(v=>v!=null); const avgStick=sv.length?Math.round(10*sv.reduce((a,b)=>a+b,0)/sv.length)/10:null;
+  const dl=L.d.slice(5).replace('-','/');
+  $('auKpis').innerHTML=
+    tile('DAU'+info('그날 접속한 로그인 사용자 수.'),L.dau,P?P.dau:null,dl)+
+    tile('WAU (7일)'+info(dl+' 포함 직전 7일 동안 1번 이상 접속한 로그인 사용자.'),L.full7?L.wau7:null,null,dl+' 기준')+
+    tile('MAU (30일)'+info(dl+' 포함 직전 30일 동안 1번 이상 접속한 로그인 사용자.'),L.full30?L.mau30:null,null,dl+' 기준')+
+    tile('고착도 DAU/MAU',avgStick==null?null:String(avgStick),null,'기간 평균 · 평균 DAU '+fmt.format(avgDau)+'명','%');
+  $('auDesc').textContent=D[0].d+' ~ '+L.d+' · 막대 = DAU(왼쪽 축) · 선 = 직전 7일/30일 순사용자(오른쪽 축)';
+  const s1=cssVar('--s1'),s2=cssVar('--s2'),s3=cssVar('--s3');
+  const o=baseOptions(); o.scales.y1={position:'right',beginAtZero:true,grid:{display:false},border:{display:false},ticks:{color:cssVar('--muted'),font:{size:11},callback:v=>fmt.format(v)}};
+  const lb=D.map(x=>x.d.slice(5).replace('-','/'));
+  auCharts.push(new Chart($('cAu'),{type:'bar',data:{labels:lb,datasets:[
+    {type:'bar',label:'DAU',data:D.map(x=>x.dau),backgroundColor:s1,borderRadius:3,maxBarThickness:22,yAxisID:'y',order:2},
+    {type:'line',...lineDs('WAU (직전 7일)',D.map(x=>x.full7?x.wau7:null),s2),yAxisID:'y1',order:1,pointRadius:D.length>60?0:2},
+    {type:'line',...lineDs('MAU (직전 30일)',D.map(x=>x.full30?x.mau30:null),s3),yAxisID:'y1',order:1,pointRadius:D.length>60?0:2}]},options:o}));
+  const o2=baseOptions(); o2.plugins.legend={display:false}; o2.scales.y.ticks.callback=v=>v+'%';
+  auCharts.push(new Chart($('cAuStick'),{type:'line',data:{labels:lb,datasets:[{...lineDs('DAU/MAU',D.map(stick),s1),pointRadius:D.length>60?0:2}]},options:o2}));
+  table('tAu',['일자','DAU','WAU(7일)','MAU(30일)'],D.map(x=>[x.d,x.dau,x.full7?x.wau7:null,x.full30?x.mau30:null]));
+  const mrows=A.monthly.map(m=>'<tr><td>'+m.m+(m.days<28?' <span style="color:var(--muted)">('+m.days+'일치)</span>':'')+'</td><td>'+fmt.format(m.mau)+'</td><td>'+fmt.format(m.avgDau)+'</td><td>'+(m.mau&&m.days>=28?(100*m.avgDau/m.mau).toFixed(1)+'%':'–')+'</td></tr>').join('');
+  const wrows=A.weekly.slice(-8).reverse().map(w=>'<tr><td>'+w.w.slice(5).replace('-','/')+' 주'+(w.days<7?' <span style="color:var(--muted)">('+w.days+'일치)</span>':'')+'</td><td>'+fmt.format(w.wau)+'</td></tr>').join('');
+  $('tAuMonthly').innerHTML='<table><thead><tr><th>월</th><th>MAU</th><th>평균 DAU</th><th>DAU/MAU</th></tr></thead><tbody>'+mrows+'</tbody></table>'+
+    '<table style="margin-top:12px"><thead><tr><th>주 (월요일 시작)</th><th>WAU</th></tr></thead><tbody>'+wrows+'</tbody></table>';
 }
 // 탭
 function showTab(t){ ['overview','cm','rocket','flow','iv','tp'].forEach(x=>{ const el=document.getElementById('tab-'+x); if(el) el.hidden=(x!==t); });

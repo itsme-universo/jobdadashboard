@@ -298,4 +298,32 @@ async function buildCmRange(db, days) {
   return { days, visitors: count('v'), engaged: count('e') };
 }
 
-module.exports = { buildInterview, buildTalentPool, buildSurvey, buildCmRange, buildIvDesign };
+
+// ---- 활성 사용자 DAU · WAU · MAU (로그인 userSn 기준, tracking_user_daily_stat)
+//  rolling: 각 날짜 D 기준 직전 7일/30일(D 포함) distinct userSn. 달력 월 MAU·주(월~일) WAU도 함께.
+async function buildActiveUsers(db, until) {
+  const ud = db.collection('tracking_user_daily_stat');
+  const S = new Date(START + 'T00:00:00+09:00'), E = new Date(until + 'T23:59:59.999+09:00');
+  const DAY = 864e5, base = S.getTime();
+  const idx = (d) => Math.round((new Date(d + 'T00:00:00+09:00').getTime() - base) / DAY);
+  const pairs = await agg(ud, [{ $match: { date: { $gte: S, $lte: E }, userSn: { $gt: 0 } } }, { $group: { _id: { u: '$userSn', d: kstDay('$date') } } }]);
+  const nDays = idx(until) + 1; const byUser = new Map();
+  for (const p of pairs) { const i = idx(p._id.d); if (i < 0 || i >= nDays) continue; (byUser.get(p._id.u) || byUser.set(p._id.u, []).get(p._id.u)).push(i); }
+  const dau = new Array(nDays).fill(0), w7 = new Array(nDays).fill(0), m30 = new Array(nDays).fill(0);
+  const monthOf = (i) => new Date(base + i * DAY + 9 * 3600e3).toISOString().slice(0, 7);
+  const months = {}, weeks = {};
+  const weekStart = (i) => { const t = new Date(base + i * DAY + 9 * 3600e3); const dow = (t.getUTCDay() + 6) % 7; return new Date(t.getTime() - dow * DAY).toISOString().slice(0, 10); };
+  for (const days of byUser.values()) {
+    days.sort((a, b) => a - b); const c7 = new Uint8Array(nDays), c30 = new Uint8Array(nDays); const um = new Set(), uw = new Set();
+    for (const i of days) { dau[i]++; for (let k = i; k < Math.min(nDays, i + 7); k++) c7[k] = 1; for (let k = i; k < Math.min(nDays, i + 30); k++) c30[k] = 1; um.add(monthOf(i)); uw.add(weekStart(i)); }
+    for (let k = 0; k < nDays; k++) { w7[k] += c7[k]; m30[k] += c30[k]; }
+    for (const m of um) months[m] = (months[m] || 0) + 1; for (const w of uw) weeks[w] = (weeks[w] || 0) + 1;
+  }
+  const dayStr = (i) => new Date(base + i * DAY + 9 * 3600e3).toISOString().slice(0, 10);
+  const daily = dau.map((n, i) => ({ d: dayStr(i), dau: n, wau7: w7[i], mau30: m30[i], full7: i >= 6, full30: i >= 29 }));
+  const monthly = Object.entries(months).sort().map(([m, mau]) => { const ds = daily.filter((x) => x.d.startsWith(m)); return { m, mau, days: ds.length, avgDau: ds.length ? Math.round(ds.reduce((s, x) => s + x.dau, 0) / ds.length) : 0 }; });
+  const weekly = Object.entries(weeks).sort().map(([w, wau]) => ({ w, wau, days: daily.filter((x) => x.d >= w && x.d < dayStr(idx(w) + 7)).length }));
+  return { since: START, until, daily, monthly, weekly };
+}
+
+module.exports = { buildActiveUsers, buildInterview, buildTalentPool, buildSurvey, buildCmRange, buildIvDesign };
