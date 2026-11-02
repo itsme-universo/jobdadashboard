@@ -198,14 +198,18 @@ const IV_QTYPE = { self_intro: '자기소개', job: '직무 질문', follow_up: 
 const IV_INTERNAL_MIN = 5;
 const quant = (xs, p) => { if (!xs.length) return null; const s = [...xs].sort((a, b) => a - b); return s[Math.max(0, Math.ceil(s.length * p) - 1)]; }; // 최근접 순위
 const r1 = (x) => (x == null ? null : Math.round(x * 10) / 10), r3 = (x) => Math.round(x * 1000) / 1000;
-async function buildIvDesign(db, { from = '2026-10-15', to, cutoff = new Date(), internalMin = IV_INTERNAL_MIN } = {}) {
-  const tl = db.collection('tracking_log');
-  const T = { $gte: new Date(from + 'T00:00:00+09:00'), $lte: new Date(to + 'T23:59:59.999+09:00') };
-  // 사내 추정 계정
+// 사내 추정 계정: 10/14 이후 서로 다른 계정 internalMin개 이상이 세트를 만든 IP를 쓴 계정
+async function internalAccounts(tl, cutoff, internalMin = IV_INTERNAL_MIN) {
   const since14 = { $gte: new Date('2026-10-14T00:00:00+09:00'), $lte: cutoff };
   const ips = (await agg(tl, [{ $match: { timestamp: since14, eventTarget: 'INTERVIEW_SET_CREATE', eventType: 'COMPLETE', userSn: { $gt: 0 } } },
     { $group: { _id: '$clientIp', u: { $addToSet: '$userSn' } } }, { $match: { $expr: { $gte: [{ $size: '$u' }, internalMin] } } }])).map((r) => r._id);
   const internal = new Set(ips.length ? (await agg(tl, [{ $match: { timestamp: since14, clientIp: { $in: ips }, eventTarget: { $regex: '^INTERVIEW_' }, userSn: { $gt: 0 } } }, { $group: { _id: '$userSn' } }])).map((r) => r._id) : []);
+  return { ips, internal };
+}
+async function buildIvDesign(db, { from = '2026-10-15', to, cutoff = new Date(), internalMin = IV_INTERNAL_MIN } = {}) {
+  const tl = db.collection('tracking_log');
+  const T = { $gte: new Date(from + 'T00:00:00+09:00'), $lte: new Date(to + 'T23:59:59.999+09:00') };
+  const { ips, internal } = await internalAccounts(tl, cutoff, internalMin);
   const sets = (await agg(tl, [{ $match: { timestamp: T, eventTarget: 'INTERVIEW_SET_CREATE', eventType: 'COMPLETE', 'metadata.assignmentSetSn': { $ne: null } } },
     { $project: { _id: 0, sn: '$metadata.assignmentSetSn', u: '$userSn', flow: '$metadata.flow', qc: '$metadata.questionCount', t: '$timestamp' } }])).filter((s) => !internal.has(s.u));
   const bySn = new Map(sets.map((s) => [s.sn, { ...s, q: [], a: [], retry: [], start: null, report: false, resume: false }]));
@@ -326,4 +330,83 @@ async function buildActiveUsers(db, until) {
   return { since: START, until, daily, monthly, weekly };
 }
 
-module.exports = { buildActiveUsers, buildInterview, buildTalentPool, buildSurvey, buildCmRange, buildIvDesign };
+// ---- 라이브 면접 (2026-10-29 출시) — 사용률 · 단계 전환 · 나가기 · 사전 신청 · 턴 지연 (추적 지표 v3, 3.1 · 3.3 · 3.5)
+//  면접관 종류(kind)는 이벤트 metadata.kind. kind가 빠진 이벤트는 같은 세션에서 직전에 정한 kind로 붙인다
+//  단계 도달은 세션×kind 단위로 '가장 멀리 간 단계'만 세어 단조 감소. 날짜 필터용으로 첫 이벤트 날(KST)별 히스토그램으로 반출
+//  사전 신청은 세션 단위 · 진입점(entry)은 세션의 첫 라이브 사전 신청 이벤트 기준. 턴 로그는 발화 내용 없이 수치만
+const LIVE_FROM = '2026-10-29', PRE_FROM = '2026-10-16';
+const LIVE_STAGES = [['setup_view', '환경설정 화면'], ['setting', '환경설정 완료'], ['job_input', '공고 입력 화면'], ['job_done', '공고 분석 완료'], ['info', '연습 정보 확인'],
+  ['start', '연습 시작 클릭'], ['set', '세트 생성(크레딧 차감)'], ['attempt', '응시 시작'], ['report', '연습 완료(결과표 생성)']];
+const liveStage = (e) => {
+  const t = e.e, y = e.y, st = e.step == null ? null : String(e.step);
+  if (t === 'INTERVIEW_STEP' && y === 'VIEW') return st === '1' ? 0 : st === '3' ? 2 : st === '4' ? 4 : -1;
+  return ({ INTERVIEW_SETTING: 1, INTERVIEW_JOB_ANALYZE: y === 'COMPLETE' ? 3 : -1, INTERVIEW_START: 5, INTERVIEW_SET_CREATE: y === 'COMPLETE' ? 6 : -1,
+    INTERVIEW_ATTEMPT_START: 7, INTERVIEW_REPORT_CREATE: 8 })[t] ?? -1;
+};
+const PRE_STAGES = [['banner_view', '진입점 노출'], ['banner_click', '진입점 클릭'], ['page_view', '사전 신청 페이지'], ['register_click', '신청 클릭'], ['register', '신청 완료']];
+const PRE_ENTRY_KO = { acca_gate_banner: '역검 응시 화면 배너', mo_home_band_banner: '모바일 띠 배너', interview_setting_live_card: '면접 설정 · 라이브 카드', pass_interview_floating: '기출 면접 플로팅',
+  site_popup: '사이트 팝업', direct: '직접 접속', home_main_banner: '홈 메인 배너', _removed_: '제거된 진입점' };
+async function buildLive(db, { to, cutoff = new Date() } = {}) {
+  const tl = db.collection('tracking_log'), dayOf = (t) => new Date(t.getTime() + 9 * 3600e3).toISOString().slice(0, 10);
+  const T = (from) => ({ $gte: new Date(from + 'T00:00:00+09:00'), $lte: new Date(Math.min(cutoff, new Date(to + 'T23:59:59.999+09:00'))) });
+  const { internal } = await internalAccounts(tl, cutoff);
+  // 1. 단계 전환 · 사용률 · 나가기
+  const ev = await agg(tl, [{ $match: { timestamp: T(LIVE_FROM), feature: 'INTERVIEW', sessionId: { $ne: null },
+    eventTarget: { $in: ['INTERVIEW_STEP', 'INTERVIEW_SETTING', 'INTERVIEW_JOB_ANALYZE', 'INTERVIEW_START', 'INTERVIEW_SET_CREATE', 'INTERVIEW_ATTEMPT_START', 'INTERVIEW_REPORT_CREATE', 'INTERVIEW_LEAVE'] } } },
+    { $project: { _id: 0, s: '$sessionId', e: '$eventTarget', y: '$eventType', k: '$metadata.kind', step: '$metadata.step', t: '$timestamp', u: '$userSn' } }, { $sort: { s: 1, t: 1 } }]);
+  const intSess = new Set(ev.filter((x) => internal.has(x.u)).map((x) => x.s)); // 사내 추정 계정이 낀 세션 → kind 키에 '_int'
+  const reach = new Map(), funnel = {}, usage = {}, leave = {}, usedDay = new Set();
+  let cur = null, chosen = null; // chosen = 세션에서 마지막으로 완료한 환경설정의 kind (1단계 화면은 라이브가 기본 선택이라 화면 kind로는 대신하지 않음)
+  for (const x of ev) {
+    if (x.s !== cur) { cur = x.s; chosen = null; }
+    const own = x.k === 'live' || x.k === '3d' ? x.k : null;
+    if (x.e === 'INTERVIEW_SETTING' && own) chosen = own;
+    if (!(own || chosen)) continue;
+    const kind = (own || chosen) + (intSess.has(x.s) ? '_int' : '');
+    const d = dayOf(x.t);
+    if (x.e === 'INTERVIEW_SETTING' && x.y === 'COMPLETE') { const key = d + '|' + x.s + '|' + kind; if (!usedDay.has(key)) { usedDay.add(key); const u = (usage[d] ??= { live: 0, '3d': 0 }); u[kind] = (u[kind] || 0) + 1; } }
+    if (x.e === 'INTERVIEW_LEAVE') { const o = ((leave[d] ??= {})[kind] ??= {}); const st = String(x.step ?? '?'); o[st] = (o[st] || 0) + 1; continue; }
+    const i = liveStage(x); const key = x.s + '|' + kind, r = reach.get(key);
+    if (!r) reach.set(key, { d, kind, max: i }); else if (i > r.max) r.max = i;
+  }
+  for (const r of reach.values()) { if (r.max < 0) continue; const h = ((funnel[r.d] ??= {})[r.kind] ??= LIVE_STAGES.map(() => 0)); h[r.max]++; }
+  // 2. 사전 신청 (세션 단위)
+  const pre = await agg(tl, [{ $match: { timestamp: T(PRE_FROM), eventTarget: { $regex: '^LIVE_INTERVIEW_(WAITLIST_ENTRY|PRE_REGISTRATION|PRE_REGISTER)$' } } }, { $sort: { timestamp: 1 } },
+    { $group: { _id: { $ifNull: ['$sessionId', { $toString: '$_id' }] }, t: { $first: '$timestamp' }, entry: { $first: '$metadata.entry' },
+      bv: flag({ $and: [{ $eq: ['$eventTarget', 'LIVE_INTERVIEW_WAITLIST_ENTRY'] }, { $eq: ['$eventType', 'VIEW'] }] }),
+      bc: flag({ $and: [{ $eq: ['$eventTarget', 'LIVE_INTERVIEW_WAITLIST_ENTRY'] }, { $eq: ['$eventType', 'CLICK'] }] }),
+      pv: flag({ $eq: ['$eventTarget', 'LIVE_INTERVIEW_PRE_REGISTRATION'] }),
+      rc: flag({ $and: [{ $eq: ['$eventTarget', 'LIVE_INTERVIEW_PRE_REGISTER'] }, { $eq: ['$eventType', 'CLICK'] }] }),
+      rg: flag({ $and: [{ $eq: ['$eventTarget', 'LIVE_INTERVIEW_PRE_REGISTER'] }, { $eq: ['$eventType', 'COMPLETE'] }] }) } },
+    { $group: { _id: { d: kstDay('$t'), e: { $ifNull: ['$entry', 'direct'] }, m: { $add: ['$bv', { $multiply: ['$bc', 2] }, { $multiply: ['$pv', 4] }, { $multiply: ['$rc', 8] }, { $multiply: ['$rg', 16] }] } }, n: { $sum: 1 } } }]);
+  const preDaily = {}; // preDaily[d][entry] = 단계별 세션 수
+  for (const r of pre) { const o = ((preDaily[r._id.d] ??= {})[r._id.e] ??= PRE_STAGES.map(() => 0)); PRE_STAGES.forEach((_, i) => { if (r._id.m & (1 << i)) o[i] += r.n; }); }
+  // 3. 라이브 세트 · 턴 지연 (발화 내용 없음)
+  const turnEv = await agg(tl, [{ $match: { timestamp: T(LIVE_FROM), 'metadata.kind': 'live', eventTarget: { $in: ['INTERVIEW_LIVE_TURN_END', 'INTERVIEW_LIVE_REPLY', 'INTERVIEW_LIVE_FIRST_SOUND', 'INTERVIEW_LIVE_TURN_OPEN', 'INTERVIEW_LIVE_OPENING', 'INTERVIEW_LIVE_CONNECT'] } } },
+    { $project: { _id: 0, e: '$eventTarget', y: '$eventType', t: '$timestamp', sn: '$metadata.assignmentSetSn', m: '$metadata', u: '$userSn' } }]);
+  // 라이브 세트: kind=live 이벤트에 실린 assignmentSetSn. 세트 주인이 사내 추정 계정이면 그 세트의 행 전부에 int=1
+  const setEv = await agg(tl, [{ $match: { timestamp: T(LIVE_FROM), 'metadata.kind': 'live', 'metadata.assignmentSetSn': { $ne: null } } },
+    { $group: { _id: '$metadata.assignmentSetSn', u: { $max: '$userSn' }, t0: { $min: '$timestamp' },
+      created: { $min: { $cond: [{ $and: [{ $eq: ['$eventTarget', 'INTERVIEW_SET_CREATE'] }, { $eq: ['$eventType', 'COMPLETE'] }] }, '$timestamp', null] } },
+      qc: { $max: '$metadata.questionCount' }, attemptT: { $min: { $cond: [{ $eq: ['$eventTarget', 'INTERVIEW_ATTEMPT_START'] }, '$timestamp', null] } },
+      reportT: { $min: { $cond: [{ $eq: ['$eventTarget', 'INTERVIEW_REPORT_CREATE'] }, '$timestamp', null] } }, resume: flag({ $eq: ['$eventTarget', 'INTERVIEW_RESUME'] }),
+      opening: flag({ $eq: ['$eventTarget', 'INTERVIEW_LIVE_OPENING'] }), turns: { $sum: { $cond: [{ $eq: ['$eventTarget', 'INTERVIEW_LIVE_TURN_END'] }, 1, 0] } },
+      follow: { $sum: { $cond: [{ $and: [{ $eq: ['$eventTarget', 'INTERVIEW_LIVE_REPLY'] }, { $eq: ['$metadata.decision', 'FOLLOW_UP'] }] }, 1, 0] } } } }]);
+  const setInt = new Map(setEv.map((r) => [r._id, internal.has(r.u) ? 1 : 0]));
+  // setRows: [d(만든 날, 없으면 첫 이벤트 날), 사내, 질문 수, 응시 시작, 완료(결과표), 소요 분(응시→결과표, 이어하기 없는 것만), 답변 턴 수, 꼬리질문 수, 이어하기, 연습 화면 진입(오프닝)]
+  const setRows = setEv.map((r) => [dayOf(r.created || r.t0), setInt.get(r._id), r.qc ?? null, r.attemptT ? 1 : 0, r.reportT ? 1 : 0,
+    r.attemptT && r.reportT && !r.resume && r.reportT > r.attemptT ? Math.round((r.reportT - r.attemptT) / 6000) / 10 : null, r.turns, r.follow, r.resume, r.opening]).sort((a, b) => (a[0] < b[0] ? -1 : 1));
+  const turns = [], replies = [], sound = [], gap = [], sets = {}, connectFail = {};
+  for (const x of turnEv) { const d = dayOf(x.t), m = x.m || {}, int = internal.has(x.u) || setInt.get(x.sn) === 1 ? 1 : 0;
+    if (x.sn != null) (sets[d] ??= new Set()).add(x.sn);
+    if (x.e === 'INTERVIEW_LIVE_TURN_END') turns.push([d, m.reason || '?', m.endBy || null, m.resumes || 0, m.waitMs ?? null, m.answerMs ?? null, m.turnSeq ?? null, int]);
+    else if (x.e === 'INTERVIEW_LIVE_REPLY') replies.push([d, m.decision || '?', m.replyMs ?? null, m.apiMs ?? null, int]);
+    else if (x.e === 'INTERVIEW_LIVE_FIRST_SOUND' && m.ms != null) sound.push([d, m.ms, int]);
+    else if (x.e === 'INTERVIEW_LIVE_TURN_OPEN' && m.gapMs != null) gap.push([d, m.gapMs, int]);
+    else if (x.e === 'INTERVIEW_LIVE_CONNECT' && x.y === 'FAIL') connectFail[d] = (connectFail[d] || 0) + 1; }
+  const liveSets = Object.fromEntries(Object.entries(sets).map(([d, s]) => [d, s.size]));
+  return { from: LIVE_FROM, preFrom: PRE_FROM, to, asOf: cutoff.toISOString(), stages: LIVE_STAGES.map(([k, l]) => ({ key: k, label: l })), preStages: PRE_STAGES.map(([k, l]) => ({ key: k, label: l })),
+    entryKo: PRE_ENTRY_KO, internalAccounts: internal.size, setRows, funnel, usage, leave, preDaily, liveSets, turns, replies, sound, gap, connectFail };
+}
+
+module.exports = { buildActiveUsers, buildInterview, buildTalentPool, buildSurvey, buildCmRange, buildIvDesign, buildLive };

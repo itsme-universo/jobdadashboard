@@ -176,6 +176,8 @@
   nav.tabs .sec a:hover { filter:brightness(1.1); }
   nav.tabs .sec a.alt { background:var(--s3); box-shadow:0 2px 10px color-mix(in srgb,var(--s3) 35%,transparent); }
   .filterbar { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px 16px; margin-bottom:16px; display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
+  .lv-int { white-space:nowrap; cursor:pointer; color:var(--ink-2); }
+  .lv-int input { vertical-align:-2px; margin:0 2px 0 0; }
   .chips { display:flex; flex-wrap:wrap; gap:6px; }
   .chip { border:1px solid var(--border); border-radius:999px; padding:5px 13px; font:inherit; font-size:13px; color:var(--ink-2); background:transparent; cursor:pointer; }
   .chip:hover { border-color:var(--baseline); color:var(--ink); }
@@ -293,6 +295,7 @@
     <a href="#" data-t="rocket">로켓지원</a>
     <a href="#" data-t="flow">페이지 이동 경로</a>
     <a href="#" data-t="iv">면접연습</a>
+    <a href="#" data-t="live">라이브 면접</a>
     <a href="#" data-t="tp" hidden>인재풀</a>
   </nav>
   <div class="tabpanel" id="tab-overview">
@@ -526,6 +529,83 @@
     <div class="card"><h3>⑤ 완료 후 한 줄 피드백 <span class="sv-n" id="svChipN"></span></h3><p class="desc">선택지 (복수 선택) · <span class="sv-up">▲ 긍정</span> <span class="sv-down">▼ 부정</span> · 비율 = 완료 설문 응답 대비</p><div id="svChip"></div></div>
     <div class="card"><h3>⑥ 라이브 면접 기대 <span class="sv-n" id="svPreN"></span></h3><p class="desc">라이브 면접 사전 신청 · 가장 기대하는 점 (복수 선택)</p><div id="svPre"></div></div>
     <div class="card wide"><h3>⑦ 일별 응답 추이</h3><p class="desc">막대 = 이탈·완료 설문 응답 수 · 선 = 일별 NPS (완료 응답 5건 미만인 날은 표시 안 함)</p><div class="plot" style="height:220px"><canvas id="cSvDaily"></canvas></div><details class="tbl"><summary>표 보기</summary><div class="scroll" id="tSvDaily"></div></details></div>
+  </div>
+  </div>
+
+  <div class="tabpanel" id="tab-live">
+  <p class="section-desc" style="margin-top:0">라이브 면접관(실사) 출시 <span id="lvFrom"></span> 이후 · <b>위 날짜 필터 기간</b>(<span id="lvRange"></span>) · <span id="lvAsOf"></span> 집계 · 세션 단위(한 번의 방문). 일반 = 3D 면접관. 출처: 추적 지표 v3(2026-10-29) 3.1 · 3.3 · 3.5 · <label class="lv-int"><input type="checkbox" id="lvInt"> 사내 추정 계정 포함 <span class="tip" tabindex="0" data-tip="면접연습 탭 ‘면접 질문 설계 검토’와 같은 기준: 10/14 이후 서로 다른 5개 이상 계정이 세트를 만든 IP를 쓴 계정. 기본은 제외. 사전 신청(⑧·⑨)과 설문(⑩)은 이 설정과 무관하게 전체입니다.">ⓘ</span></label> <span id="lvIntNote"></span></p>
+  <div class="kpis" id="lvKpis"></div>
+
+  <h2 class="section" style="margin-top:8px">이용 · 페이지 전환</h2>
+  <div class="grid">
+    <div class="card wide">
+      <h3>① 면접관 사용률 <span class="tip" tabindex="0" data-tip="환경설정 완료(INTERVIEW_SETTING COMPLETE)를 누른 세션을 그날 고른 면접관 종류로 셈. 한 세션이 두 종류를 모두 고르면 양쪽에 1씩. 선 = 라이브 비율.">ⓘ</span></h3>
+      <p class="desc">일별 환경설정 완료 세션 · 막대 = 라이브 / 일반 · 선 = 라이브 선택 비율</p>
+      <div class="plot" style="height:240px"><canvas id="cLvUsage"></canvas></div>
+      <details class="tbl"><summary>표 보기</summary><div class="scroll" id="tLvUsage"></div></details>
+    </div>
+    <div class="card wide">
+      <h3>② 라이브 연습 일별 추이 <span class="tip" tabindex="0" data-tip="③의 단계 도달을 세션이 처음 들어온 날 기준으로 일별로 나눈 것. 연습 시작 클릭 → 세트 생성(크레딧 차감) → 응시 시작 → 연습 완료(결과표 생성). 면접연습 탭의 ‘토큰 사용 추이’에 해당.">ⓘ</span></h3>
+      <p class="desc">라이브 세션 · 막대 = 연습 정보 화면까지 온 세션 · 선 = 연습 시작 클릭 · 세트 생성 · 연습 완료</p>
+      <div class="plot" style="height:220px"><canvas id="cLvDaily"></canvas></div>
+      <details class="tbl"><summary>표 보기</summary><div class="scroll" id="tLvDaily"></div></details>
+    </div>
+    <div class="card wide">
+      <h3>③ 단계별 전환 — 라이브 vs 일반 <span class="tip" tabindex="0" data-tip="세션×면접관 종류마다 가장 멀리 간 단계까지 도달한 것으로 셈(단조 감소). 면접관 종류는 이벤트에 실린 kind, 없으면 그 세션에서 마지막으로 완료한 환경설정의 kind. 1단계 화면은 라이브가 기본 선택이라, 라이브의 ‘환경설정 화면’에는 화면만 보고 일반으로 바꾸거나 나간 세션이 포함됨. 이력서 업로드(2단계)는 메모리가 없을 때만 떠서 단계에서 뺌. 결과표 생성은 이어하기로 다른 세션에서 끝내면 빠질 수 있음.">ⓘ</span></h3>
+      <p class="desc">단계에 도달한 세션 · 괄호 = 직전 단계 대비 전환 · <span style="color:var(--s8);font-weight:600">빨강</span> = 라이브가 일반보다 크게 낮은 구간</p>
+      <div class="scroll" id="tLvFunnel"></div>
+    </div>
+    <div class="card"><h3>라이브 단계 퍼널</h3><p class="desc">세션 · 직전 단계 대비 전환</p><div id="lvFunnelLive"></div></div>
+    <div class="card"><h3>일반(3D) 단계 퍼널</h3><p class="desc">같은 기간 비교용</p><div id="lvFunnel3d"></div></div>
+    <div class="card wide">
+      <h3>④ 어느 단계에서 나갔나 <span class="tip" tabindex="0" data-tip="‘나가기 확정’(INTERVIEW_LEAVE) 클릭 수. 단계는 이벤트의 step. 면접관 종류는 ③과 같은 기준.">ⓘ</span></h3>
+      <p class="desc">‘나가기 확정’ 클릭 수 · 비중 = 그 면접관 종류의 전체 나가기 대비</p>
+      <div id="lvLeave"></div>
+    </div>
+  </div>
+
+  <h2 class="section" style="margin-top:28px">연습 안에서 <span class="tip" tabindex="0" data-tip="라이브 세트(assignmentSetSn) 단위 · 세트를 만든 날 기준. 라이브 연습은 질문·답변을 일반 연습의 INTERVIEW_QUESTION/ANSWER_SUBMIT 대신 턴 로그(INTERVIEW_LIVE_TURN_END · REPLY)로 남겨, 답변 수 = 넘김(턴) 수로 셉니다. 발화 내용은 싣지 않습니다.">ⓘ</span></h2>
+  <div class="grid">
+    <div class="card wide">
+      <h3>⑤ 라이브 세트 결과 <span class="tip" tabindex="0" data-tip="세트 = kind가 live인 이벤트에 실린 assignmentSetSn. 응시 시작 = INTERVIEW_ATTEMPT_START, 연습 화면 진입 = 면접관 오프닝(INTERVIEW_LIVE_OPENING), 완료 = 결과표 생성 요청(INTERVIEW_REPORT_CREATE). 소요 = 응시 시작 → 결과표 요청(이어하기 없는 세트만). 꼬리질문 = 면접관 판단이 FOLLOW_UP인 응답 수.">ⓘ</span></h3>
+      <p class="desc">면접연습 탭의 ‘토큰 사용 이후’ · ‘흐름별 구성과 소요 시간’에 해당 · 세트 1개 = 크레딧 차감 1회</p>
+      <div class="kpis" id="lvSetKpis" style="margin-bottom:8px"></div>
+      <details class="tbl"><summary>세트별 보기</summary><div class="scroll" id="tLvSets"></div></details>
+    </div>
+    <div class="card wide">
+      <h3>⑥ 답변 차례별 진행 <span class="tip" tabindex="0" data-tip="연습 화면에 들어온(오프닝이 나온) 세트 기준. 그만둔 세트는 ‘넘긴 답변 수 + 1’번째 차례에서 멈춘 것으로, 끝낸 세트는 마지막으로 넘긴 차례까지 온 것으로 셈. 답변 시간 = 내 차례가 열린 뒤 넘김까지(answerMs). 라이브는 질문 수와 꼬리질문이 면접관 판단으로 정해져 차례 수가 세트마다 다릅니다.">ⓘ</span></h3>
+      <p class="desc">면접연습 탭의 ‘질문별 이탈 퍼널’ · ‘질문 순서별 답변 시간’에 해당 · 막대 = 그 차례까지 온 세트, <span style="color:var(--s8);font-weight:600">빨강</span> = 그 차례에서 그만둔 세트</p>
+      <div id="lvTurnDrop"></div>
+    </div>
+    <div class="card wide">
+      <h3>⑦ 라이브 응답 속도 · 턴 판정 <span class="tip" tabindex="0" data-tip="라이브 연습 화면의 턴 로그(발화 내용 없음). 첫 소리 = 면접관 발화 요청 → 첫 소리(INTERVIEW_LIVE_FIRST_SOUND). 응답 요청 = 답변 넘김 → 면접관 응답 요청(replyMs). API = 응답 생성 API 시간(apiMs). 차례 열림 = 면접관 말 끝 → 내 차례(gapMs). 끊길 뻔 = 넘김 대기 중 다시 말해 넘김이 취소된 적이 있는 턴. 분위수는 최근접 순위.">ⓘ</span></h3>
+      <p class="desc" id="lvTurnDesc"></p>
+      <div class="kpis" id="lvTurnKpis" style="margin-bottom:8px"></div>
+      <div class="grid" style="margin:0">
+        <div><h3 style="font-size:13px">넘김 사유</h3><div id="lvReason"></div></div>
+        <div><h3 style="font-size:13px">면접관 판단 결과</h3><div id="lvDecision"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="section" style="margin-top:28px">사전 신청 · 설문</h2>
+  <div class="grid">
+    <div class="card wide">
+      <h3>⑧ 라이브 면접 사전 신청 — 진입점별 <span class="tip" tabindex="0" data-tip="세션 단위로 각 단계를 한 번이라도 한 수. 진입점 = 그 세션의 첫 사전 신청 이벤트에 실린 entry. 사전 신청 페이지는 진입점 클릭 없이 링크로 바로 들어오기도 해 엄밀한 순차 퍼널은 아님. 10/29 역검 배너·모바일 띠 배너 제거 후 노출이 급감.">ⓘ</span></h3>
+      <p class="desc"><span id="lvPreRange"></span> · 노출 → 클릭 → 사전 신청 페이지 → 신청 클릭 → 신청 완료 (세션)</p>
+      <div class="scroll" id="tLvPre"></div>
+      <div class="plot" style="height:220px;margin-top:12px"><canvas id="cLvPre"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>⑨ 라이브 사전 신청 · 가장 기대하는 점 <span class="sv-n" id="lvSvPreN"></span></h3>
+      <p class="desc">사전 신청 설문 (복수 선택) · 비율 = 응답 대비</p>
+      <div id="lvSvPre"></div>
+    </div>
+    <div class="card">
+      <h3>⑩ 라이브 연습 설문 <span class="sv-n" id="lvSvN"></span> <span class="tip" tabindex="0" data-tip="라이브 면접관 전용 설문(INTERVIEW_LIVE_EXIT · INTERVIEW_LIVE_COMPLETE). 출처: survey_answer. 자유서술은 원문 대신 건수만.">ⓘ</span></h3>
+      <p class="desc">이탈 사유 · 완료 후 만족도(1~7점 평균) · NPS · 한 줄 피드백</p>
+      <div id="lvSv"></div>
+    </div>
   </div>
   </div>
 
@@ -916,6 +996,7 @@ const IV = __INTERVIEW__;
 const TP = __TALENT__;
 const SV = __SURVEY__;
 const IVD = __IVDESIGN__;
+const LIVE = __LIVE__;
 const DATA_START = '2026-08-27';
 let homeCharts = [];
 const _tt = document.getElementById('tooltip');
@@ -952,6 +1033,7 @@ function renderHome(userAction){
   renderCmFinding();
   svSync();
   renderIvDrop();
+  liveSync();
   const N=hstate.mode==='custom'?null:hstate.n; const wu=HOME.windowUsers||{}; let uv=null,un='';
   if(N!=null&&wu[N]!=null){uv=wu[N];un='정확(중복 제거)';}
   else if(N!=null){ const ks=Object.keys(wu).map(Number).sort((a,b)=>Math.abs(a-N)-Math.abs(b-N)); if(ks.length){uv=wu[ks[0]];un='≈ 최근 '+ks[0]+'일 기준';} }
@@ -1014,11 +1096,12 @@ function renderAu(rows){
     '<table style="margin-top:12px"><thead><tr><th>주 (월요일 시작)</th><th>WAU</th></tr></thead><tbody>'+wrows+'</tbody></table>';
 }
 // 탭
-function showTab(t){ ['overview','cm','rocket','flow','iv','tp'].forEach(x=>{ const el=document.getElementById('tab-'+x); if(el) el.hidden=(x!==t); });
+function showTab(t){ ['overview','cm','rocket','flow','iv','live','tp'].forEach(x=>{ const el=document.getElementById('tab-'+x); if(el) el.hidden=(x!==t); });
   if(t==='flow'){ renderNet(); renderIvFlow(); }
   if(t==='iv') renderSurvey();
+  if(t==='live') renderLive();
   document.querySelectorAll('#subtabs a').forEach(a=>a.classList.toggle('active',a.dataset.t===t));
-  setTimeout(()=>{ try{charts.concat(featCharts,svCharts).forEach(c=>c.resize());}catch(e){} },10); }
+  setTimeout(()=>{ try{charts.concat(featCharts,svCharts,lvCharts).forEach(c=>c.resize());}catch(e){} },10); }
 // 네트워크
 const NET_GROUPS=['홈','로그인/가입','공고 탐색','역량검사','매칭','커리어메모리','마이페이지','콘텐츠','면접연습'];
 let homeEdgeMode='width', netMetric='count', netPick=null, netPinned=null;
@@ -1309,6 +1392,140 @@ function renderIvDesign(){
   ivTbl('tIvdQc',['질문 수','시작','끝냄','완료율'],IVD.byQc.map(r=>[r.question_count+'개',fmt.format(r.started),fmt.format(r.completed),rate(r.completed,r.started)+'%']));
   ivTbl('tIvdTimeout',['구분','연습','시간 초과 겪음'],IVD.timeout.map(r=>[esc(r.group),fmt.format(r.sets),pct(r.timed_out_rate)]));
 }
+// ---- 라이브 면접 (날짜 필터 기간) — 사용률 · 단계 전환 · 나가기 · 사전 신청 · 설문 · 턴 지연
+const LV_STEP=[['1','1단계 · 환경설정'],['2','2단계 · 이력서 업로드'],['3','3단계 · 공고 입력'],['4','4단계 · 연습 정보'],['5','5단계 · 분석 중'],['cover','연습 · 표지'],['preparing','연습 · 준비'],['countdown','연습 · 카운트다운'],['practicing','연습 중']];
+const LV_REASON={silence:'무음 감지로 넘김',deadline:'답변 시간 종료',skip:'넘기기 버튼'}, LV_ENDBY={complete:'AI 완결 판정',cap:'최대 대기 도달',countdown:'고정 카운트다운'};
+const LV_DECISION={FOLLOW_UP:'꼬리질문',NEXT_QUESTION:'다음 질문',END:'면접 종료',REDIRECT:'되묻기 응답',SKIP:'건너뜀'};
+let lvCharts=[], lvInt=false;
+function lvView(){
+  const rows=hRows(), from=rows.length?rows[0].d:null, to=rows.length?rows[rows.length-1].d:null, inR=(d)=>from&&d>=from&&d<=to, n=LIVE.stages.length;
+  const add=(a,b)=>b.forEach((k,i)=>a[i]+=k), v={from,to,hist:{live:Array(n).fill(0),'3d':Array(n).fill(0)},usage:[],leave:{live:{},'3d':{}},pre:{},preDays:[],sets:0,sv:{exit:{n:0,text:0,r:{}},complete:{n:0,text:0,sc:{},chip:{}},pre:{n:0,o:{}}}};
+  const ks=(k)=>lvInt?[k,k+'_int']:[k]; // 사내 추정 세션은 '_int' 키로 따로 반출됨
+  v.daily=[];
+  for(const d of Object.keys(LIVE.funnel||{}).sort()){ if(!inR(d)) continue; const o=LIVE.funnel[d], day=Array(n).fill(0);
+    for(const k of ['live','3d']) for(const kk of ks(k)) if(o[kk]){ add(v.hist[k],o[kk]); if(k==='live') add(day,o[kk]); }
+    v.daily.push({d,r:lvReach(day)}); }
+  for(const d of Object.keys(LIVE.usage||{}).sort()) if(inR(d)){ const u=LIVE.usage[d], sm=(k)=>ks(k).reduce((a,kk)=>a+(u[kk]||0),0); v.usage.push({d,live:sm('live'),'3d':sm('3d')}); }
+  for(const [d,o] of Object.entries(LIVE.leave||{})) if(inR(d)) for(const k of ['live','3d']) for(const kk of ks(k)) for(const [st,c] of Object.entries(o[kk]||{})) v.leave[k][st]=(v.leave[k][st]||0)+c;
+  for(const d of Object.keys(LIVE.preDaily||{}).sort()){ if(!inR(d)) continue; let pv=0,rg=0;
+    for(const [e,a] of Object.entries(LIVE.preDaily[d])){ add(v.pre[e]??=Array(LIVE.preStages.length).fill(0),a); pv+=a[2]; rg+=a[4]; } v.preDays.push({d,pv,rg}); }
+  const pick=(arr,ic)=>arr.filter(r=>inR(r[0])&&(lvInt||!r[ic]));
+  v.setRows=pick(LIVE.setRows||[],1); v.sets=v.setRows.length; v.setsInt=(LIVE.setRows||[]).filter(r=>inR(r[0])&&r[1]).length;
+  v.turns=pick(LIVE.turns||[],7); v.replies=pick(LIVE.replies||[],4); v.sound=pick(LIVE.sound||[],2); v.gap=pick(LIVE.gap||[],2);
+  v.turnsInt=(LIVE.turns||[]).filter(r=>inR(r[0])&&r[7]).length;
+  const inc=(o,k,c)=>o[k]=(o[k]||0)+c;
+  for(const [d,x] of Object.entries(SV.daily||{})){ if(!inR(d)) continue; const e=x['exit:live'],c=x['complete:live'],p=x['pre:live'];
+    if(e){ v.sv.exit.n+=e.n; v.sv.exit.text+=e.text; for(const [k,c2] of Object.entries(e.r||{})) inc(v.sv.exit.r,k,c2); }
+    if(c){ v.sv.complete.n+=c.n; v.sv.complete.text+=c.text; for(const [q,h] of Object.entries(c.sc||{})) for(const [sc,c2] of Object.entries(h)) inc(v.sv.complete.sc[q]??={},sc,c2); for(const [k,c2] of Object.entries(c.chip||{})) inc(v.sv.complete.chip,k,c2); }
+    if(p){ v.sv.pre.n+=p.n; for(const [k,c2] of Object.entries(p.o||{})) inc(v.sv.pre.o,k,c2); } }
+  return v;
+}
+const lvReach=(h)=>h.map((_,i)=>h.slice(i).reduce((a,b)=>a+b,0)); // 가장 멀리 간 단계 히스토그램 → 단계별 도달 수
+const lvQ=(xs,p)=>{ if(!xs.length) return null; const s=[...xs].sort((a,b)=>a-b); return s[Math.max(0,Math.ceil(s.length*p)-1)]; };
+const lvSec=(ms)=>ms==null?'–':(ms/1000).toFixed(1)+'초';
+function renderLive(){
+  if(!$('lvKpis')||!LIVE.stages) return;
+  lvCharts.forEach(c=>c.destroy()); lvCharts=[];
+  const V=lvView(), sub=(t,x)=>t.replace('<div class="delta"></div>','<div class="delta">'+x+'</div>');
+  $('lvFrom').textContent=LIVE.from; $('lvAsOf').textContent=new Date(LIVE.asOf).toLocaleString('ko-KR');
+  $('lvRange').textContent=V.from?V.from+' ~ '+V.to:'–'; $('lvPreRange').textContent='사전 신청 '+LIVE.preFrom+' 시작';
+  const L=lvReach(V.hist.live), G=lvReach(V.hist['3d']), uL=V.usage.reduce((a,r)=>a+r.live,0), u3=V.usage.reduce((a,r)=>a+r['3d'],0);
+  const preTot=Object.values(V.pre).reduce((a,x)=>(x.forEach((k,i)=>a[i]+=k),a),Array(LIVE.preStages.length).fill(0));
+  const live=V.to&&V.to>=LIVE.from;
+  $('lvKpis').innerHTML=
+    sub(tile('라이브 선택'+info('환경설정 완료를 라이브 면접관으로 누른 세션(일별 합). 비율 = 라이브 / (라이브 + 일반).'),uL,null,null,'세션'),'면접관 선택 중 '+rate(uL,uL+u3)+'%')+
+    sub(tile('라이브 연습 시작'+info('라이브로 질문 세트 생성(크레딧 차감)까지 간 세션.'),L[6],null,null,'세션'),'환경설정 완료 대비 '+rate(L[6],L[1])+'%')+
+    sub(tile('라이브 연습 완료'+info('결과표 생성까지 간 라이브 세션.'),L[8],null,null,'세션'),'라이브 세트 '+fmt.format(V.sets)+'개 · 응시 시작 '+fmt.format(V.setRows.filter(r=>r[3]).length)+'개')+
+    sub(tile('사전 신청 완료'+info('라이브 면접 사전 신청(LIVE_INTERVIEW_PRE_REGISTER COMPLETE)을 한 세션.'),preTot[4],null,null,'세션'),'사전 신청 페이지 '+fmt.format(preTot[2])+' 세션 중 '+rate(preTot[4],preTot[2])+'%');
+  $('lvIntNote').innerHTML=(!lvInt&&(V.setsInt||V.turnsInt))?'<span class="sv-small">사내 추정 세트 '+fmt.format(V.setsInt)+'개 · 턴 '+fmt.format(V.turnsInt)+'회 제외됨</span>':'';
+  if(!live){ ['tLvUsage','tLvDaily','tLvFunnel','lvFunnelLive','lvFunnel3d','lvLeave','lvSetKpis','tLvSets','lvTurnDrop'].forEach(id=>$(id).innerHTML='<div class="sv-empty">라이브 면접관은 '+LIVE.from+'에 출시됐습니다. 기간을 그 이후로 넓혀 주세요.</div>'); }
+  // ① 사용률
+  { const D=V.usage, o=baseOptions(); o.scales.x.stacked=true; o.scales.y.stacked=true; o.scales.y.ticks.precision=0;
+    o.scales.y1={position:'right',min:0,max:100,grid:{display:false},border:{display:false},ticks:{color:cssVar('--muted'),font:{size:11},callback:v=>v+'%'}};
+    lvCharts.push(new Chart($('cLvUsage'),{type:'bar',data:{labels:D.map(r=>shortDay(r.d)),datasets:[
+      {label:'라이브',data:D.map(r=>r.live),backgroundColor:cssVar('--s1'),borderRadius:3,maxBarThickness:36,stack:'s'},
+      {label:'일반(3D)',data:D.map(r=>r['3d']),backgroundColor:cssVar('--s4'),borderRadius:3,maxBarThickness:36,stack:'s'},
+      Object.assign(lineDs('라이브 비율',D.map(r=>r.live+r['3d']?Math.round(1000*r.live/(r.live+r['3d']))/10:null),cssVar('--s3')),{type:'line',yAxisID:'y1'})]},options:o}));
+    if(live) $('tLvUsage').innerHTML='<table><thead><tr><th>일자</th><th>라이브</th><th>일반(3D)</th><th>라이브 비율</th></tr></thead><tbody>'+D.map(r=>'<tr><td>'+r.d+'</td><td>'+fmt.format(r.live)+'</td><td>'+fmt.format(r['3d'])+'</td><td>'+rate(r.live,r.live+r['3d'])+'%</td></tr>').join('')+'</tbody></table>'; }
+  // ② 라이브 연습 일별 추이
+  { const D=V.daily, o=baseOptions(); o.scales.y.ticks.precision=0;
+    lvCharts.push(new Chart($('cLvDaily'),{type:'bar',data:{labels:D.map(r=>shortDay(r.d)),datasets:[
+      {type:'bar',label:'연습 정보 화면',data:D.map(r=>r.r[4]),backgroundColor:cssVar('--s4'),borderRadius:3,maxBarThickness:36,order:2},
+      Object.assign(lineDs('연습 시작 클릭',D.map(r=>r.r[5]),cssVar('--s1')),{type:'line',order:1}),
+      Object.assign(lineDs('세트 생성',D.map(r=>r.r[6]),cssVar('--s2')),{type:'line',order:1}),
+      Object.assign(lineDs('연습 완료',D.map(r=>r.r[8]),cssVar('--s3')),{type:'line',order:1})]},options:o}));
+    if(live) $('tLvDaily').innerHTML='<table><thead><tr><th>일자</th><th>환경설정 완료</th><th>연습 정보 화면</th><th>연습 시작 클릭</th><th>세트 생성</th><th>응시 시작</th><th>연습 완료</th></tr></thead><tbody>'
+      +D.map(r=>'<tr><td>'+r.d+'</td>'+[1,4,5,6,7,8].map(i=>'<td>'+fmt.format(r.r[i])+'</td>').join('')+'</tr>').join('')+'</tbody></table>'; }
+  // ③ 단계별 전환
+  if(live){ const cv=(a,i)=>i&&a[i-1]?rate(a[i],a[i-1])+'%':'';
+    $('tLvFunnel').innerHTML='<table><thead><tr><th>단계</th><th>라이브</th><th>전환</th><th>일반(3D)</th><th>전환</th></tr></thead><tbody>'+LIVE.stages.map((s,i)=>{
+      const cl=i&&L[i-1]?L[i]/L[i-1]:null, cg=i&&G[i-1]?G[i]/G[i-1]:null, bad=cl!=null&&cg!=null&&L[i-1]>=10&&cl<cg-0.3;
+      return '<tr><td>'+(i+1)+'. '+s.label+'</td><td>'+fmt.format(L[i])+'</td><td'+(bad?' style="color:var(--s8);font-weight:700"':'')+'>'+cv(L,i)+'</td><td>'+fmt.format(G[i])+'</td><td>'+cv(G,i)+'</td></tr>'; }).join('')+'</tbody></table>'
+      +'<p class="sv-note">라이브의 1단계 ‘환경설정 화면’은 라이브가 기본 선택이라 일반으로 바꾼 세션까지 포함합니다. 일반의 1단계는 그래서 작게 잡힙니다.</p>';
+    renderFunnel('lvFunnelLive',LIVE.stages.map((s,i)=>({name:s.label,users:L[i]})));
+    renderFunnel('lvFunnel3d',LIVE.stages.map((s,i)=>({name:s.label,users:G[i]})));
+    ['lvFunnelLive','lvFunnel3d'].forEach(id=>$(id).innerHTML=$(id).innerHTML.replace(/<\/b>명/g,'</b> 세션')); }
+  // ④ 나가기 단계
+  if(live){ const tl=Object.values(V.leave.live).reduce((a,b)=>a+b,0), t3=Object.values(V.leave['3d']).reduce((a,b)=>a+b,0), mx=Math.max(1,...LV_STEP.map(([k])=>Math.max(V.leave.live[k]||0,V.leave['3d'][k]||0)));
+    const steps=LV_STEP.filter(([k])=>V.leave.live[k]||V.leave['3d'][k]);
+    $('lvLeave').innerHTML=steps.length?steps.map(([k,lab])=>{ const a=V.leave.live[k]||0,b=V.leave['3d'][k]||0;
+      return '<div class="sv-row"><span class="lab">'+lab+'</span><span style="display:grid;gap:3px"><span class="sv-stack" style="background:none;height:9px"><span style="width:'+(100*a/mx)+'%;background:var(--s1);border-radius:3px"></span></span><span class="sv-stack" style="background:none;height:9px"><span style="width:'+(100*b/mx)+'%;background:var(--s4);border-radius:3px"></span></span></span><span class="num" style="line-height:1.25">'+fmt.format(a)+' · '+rate(a,tl)+'%<br><span style="color:var(--muted)">'+fmt.format(b)+' · '+rate(b,t3)+'%</span></span></div>'; }).join('')
+      +'<div class="sv-legend"><span><i style="background:var(--s1)"></i>라이브 (총 '+fmt.format(tl)+')</span><span><i style="background:var(--s4)"></i>일반 3D (총 '+fmt.format(t3)+')</span></div>':'<div class="sv-empty">선택한 기간에 나가기 기록이 없습니다.</div>'; }
+  // ⑤ 라이브 세트 결과
+  if(live){ const R=V.setRows, at=R.filter(r=>r[3]), op=R.filter(r=>r[9]), dn=R.filter(r=>r[4]), mins=R.map(r=>r[5]).filter(x=>x!=null), tr=op.map(r=>r[6]);
+    const tt=tr.reduce((a,b)=>a+b,0), fu=op.reduce((a,r)=>a+r[7],0), md=lvQ(mins,.5);
+    $('lvSetKpis').innerHTML=
+      sub(tile('라이브 세트'+info('크레딧을 써서 만든 라이브 질문 세트(세트를 만든 날 기준).'),R.length,null,null,'개'),R.length<SV_MIN?'<span class="sv-small">표본 적음</span>':'선택한 기간')+
+      sub(tile('응시 시작',R.length?rate(at.length,R.length):null,null,null,'%'),fmt.format(at.length)+' / '+fmt.format(R.length)+'세트 · 연습 화면 진입 '+fmt.format(op.length))+
+      sub(tile('결과표까지 완료',R.length?rate(dn.length,R.length):null,null,null,'%'),fmt.format(dn.length)+' / '+fmt.format(R.length)+'세트 · 이어하기 '+fmt.format(R.filter(r=>r[8]).length))+
+      sub(tile('소요 시간',md==null?null:md.toFixed(1),null,null,'분'),'중앙값 · 응시 → 결과표 · '+mins.length+'세트')+
+      sub(tile('세트당 답변 턴',tr.length?String(lvQ(tr,.5)):null,null,null,'회'),'중앙값 · 꼬리질문 '+fmt.format(fu)+'회 ('+(tt?rate(fu,tt):'–')+'% / 턴)');
+    $('tLvSets').innerHTML=R.length?'<table><thead><tr><th>만든 날</th><th>질문 수 설정</th><th>응시 시작</th><th>연습 화면</th><th>답변 턴</th><th>꼬리질문</th><th>이어하기</th><th>완료</th><th>소요(분)</th>'+(lvInt?'<th>사내 추정</th>':'')+'</tr></thead><tbody>'
+      +R.map(r=>'<tr><td>'+r[0]+'</td><td>'+(r[2]??'–')+'</td><td>'+(r[3]?'✓':'')+'</td><td>'+(r[9]?'✓':'')+'</td><td>'+r[6]+'</td><td>'+r[7]+'</td><td>'+(r[8]?'✓':'')+'</td><td>'+(r[4]?'✓':'')+'</td><td>'+(r[5]??'–')+'</td>'+(lvInt?'<td>'+(r[1]?'✓':'')+'</td>':'')+'</tr>').join('')+'</tbody></table>'
+      +'<p class="sv-note">‘완료’인데 연습 화면 진입이 없는 세트는 결과표 이벤트에만 라이브 표시가 실린 경우로, 턴 로그가 없습니다.</p>':'<div class="sv-empty">선택한 기간에 만든 라이브 세트가 없습니다'+(!lvInt&&V.setsInt?' (사내 추정 '+V.setsInt+'개 제외)':'')+'.</div>'; }
+  // ⑥ 답변 차례별 진행
+  if(live){ const S=V.setRows.filter(r=>r[9]), mx=Math.max(0,...S.map(r=>r[6]+(r[4]?0:1))), el=$('lvTurnDrop');
+    if(!S.length) el.innerHTML='<div class="sv-empty">선택한 기간에 연습 화면에 들어온 라이브 세트가 없습니다'+(!lvInt&&V.setsInt?' (사내 추정 세트 제외 · 위 ‘사내 추정 계정 포함’을 켜면 보입니다)':'')+'.</div>';
+    else { const byPos={}; for(const t of V.turns){ if(t[6]==null||t[5]==null) continue; (byPos[t[6]]??=[]).push(t[5]); }
+      el.innerHTML=Array.from({length:mx},(_,i)=>{ const k=S.filter(r=>r[4]?r[6]>=i+1:r[6]>=i).length, d=S.filter(r=>!r[4]&&r[6]===i).length, am=byPos[i+1]||[];
+        return '<div class="ivd-row"><span class="lab">'+(i+1)+'번째 답변</span><span class="ivd-bar" title="'+esc2((i+1)+'번째 · 도달 '+k+' · 그만둠 '+d)+'"><span class="r" style="width:'+(100*k/S.length)+'%"></span><span class="x" style="left:'+(100*(k-d)/S.length)+'%;width:'+(100*d/S.length)+'%"></span></span>'
+          +'<span class="num">도달 '+fmt.format(k)+' · 그만둠 <b>'+fmt.format(d)+'</b> · 답변 '+lvSec(lvQ(am,.5))+'</span></div>'; }).join('')
+        +'<p class="sv-note">연습 화면에 들어온 세트 '+fmt.format(S.length)+'개 · 답변 = 그 차례 답변 시간 중앙값'+(S.length<SV_MIN?' · 표본이 작아 차례별 이탈로 읽기 어렵습니다':'')+'.</p>'; } }
+  // ⑧ 사전 신청
+  { const ent=Object.entries(V.pre).sort((a,b)=>b[1][0]-a[1][0]||b[1][2]-a[1][2]), nm=(e)=>esc((LIVE.entryKo||{})[e]||e);
+    const row=(name,a,b)=>'<tr><td>'+(b?'<b>':'')+name+(b?'</b>':'')+'</td><td>'+fmt.format(a[0])+'</td><td>'+fmt.format(a[1])+'</td><td>'+(a[0]?rate(a[1],a[0])+'%':'–')+'</td><td>'+fmt.format(a[2])+'</td><td>'+fmt.format(a[3])+'</td><td>'+fmt.format(a[4])+'</td><td>'+(a[2]?rate(a[4],a[2])+'%':'–')+'</td></tr>';
+    $('tLvPre').innerHTML=ent.length?'<table><thead><tr><th>진입점</th><th>노출</th><th>클릭</th><th>클릭률</th><th>사전 신청 페이지</th><th>신청 클릭</th><th>신청 완료</th><th>페이지 → 완료</th></tr></thead><tbody>'+ent.map(([e,a])=>row(nm(e),a)).join('')+row('전체',preTot,true)+'</tbody></table>':'<div class="sv-empty">선택한 기간에 사전 신청 기록이 없습니다 ('+LIVE.preFrom+' 시작).</div>';
+    const D=V.preDays, o=baseOptions(); o.scales.y.ticks.precision=0;
+    lvCharts.push(new Chart($('cLvPre'),{type:'bar',data:{labels:D.map(r=>shortDay(r.d)),datasets:[{label:'사전 신청 페이지 (세션)',data:D.map(r=>r.pv),backgroundColor:cssVar('--s4'),borderRadius:3,maxBarThickness:30},Object.assign(lineDs('신청 완료 (세션)',D.map(r=>r.rg),cssVar('--s3')),{type:'line'})]},options:o})); }
+  // ⑨ · ⑩ 설문
+  { const S=V.sv, Lb=SV.labels||{};
+    $('lvSvPreN').innerHTML=svN(S.pre.n);
+    $('lvSvPre').innerHTML=svBars(Object.entries(S.pre.o).map(([k,n])=>({label:esc((Lb.pre||{})[k]||k),n,color:'var(--s7)'})).sort((a,b)=>b.n-a.n),S.pre.n);
+    $('lvSvN').innerHTML=svN(S.exit.n+S.complete.n);
+    const nps=svNps(S.complete.sc.nps);
+    const sc=SV_SCALES.filter(([k])=>S.complete.sc[k]).map(([k,lab])=>{ const h=S.complete.sc[k], n=Object.values(h).reduce((a,b)=>a+b,0), s=Object.entries(h).reduce((a,[x,c])=>a+x*c,0); return {label:lab,n,avg:(s/n).toFixed(1)}; });
+    $('lvSv').innerHTML='<div class="desc" style="margin:0 0 4px">이탈 사유 · 응답 '+fmt.format(S.exit.n)+'건</div>'
+      +svBars(Object.entries(S.exit.r).map(([k,n])=>({label:esc((Lb.exit||{})[k]||k),n,color:'var(--s2)'})).sort((a,b)=>b.n-a.n),S.exit.n,'선택한 기간에 라이브 이탈 설문 응답이 없습니다.')
+      +'<div class="desc" style="margin:12px 0 4px">완료 후 만족도 · 응답 '+fmt.format(S.complete.n)+'건'+(nps?' · NPS '+(nps.score>0?'+':'')+nps.score:'')+'</div>'
+      +(sc.length?sc.map(r=>'<div class="sv-row"><span class="lab">'+r.label+'</span><span class="sv-stack" style="background:none"><span style="width:'+(100*r.avg/7)+'%;background:var(--s3);border-radius:4px"></span></span><span class="num">평균 '+r.avg+' / 7</span></div>').join(''):'<div class="sv-empty">선택한 기간에 라이브 완료 설문 응답이 없습니다.</div>')
+      +(Object.keys(S.complete.chip).length?'<div class="desc" style="margin:12px 0 4px">완료 후 한 줄 피드백 (복수 선택)</div>'+svBars(Object.entries(S.complete.chip).map(([k,n])=>{ const pos=SV_POS.has(k); return {label:'<span class="'+(pos?'sv-up':'sv-down')+'">'+(pos?'▲':'▼')+'</span> '+esc((Lb.chip||{})[k]||k),n,color:'var('+(pos?'--s3':'--s8')+')'}; }).sort((a,b)=>b.n-a.n),S.complete.n):'')
+      +((S.exit.text+S.complete.text)?'<p class="sv-note">자유서술 '+fmt.format(S.exit.text+S.complete.text)+'건 (원문 비공개)</p>':''); }
+  // ⑦ 턴 지연 · 판정 (사내 추정 제외 시 V.turns 등에서 이미 빠짐)
+  { const snd=V.sound.map(r=>r[1]), rep=V.replies.map(r=>r[2]).filter(x=>x!=null), api=V.replies.map(r=>r[3]).filter(x=>x!=null), gp=V.gap.map(r=>r[1]), wt=V.turns.map(r=>r[4]).filter(x=>x!=null), near=V.turns.filter(r=>r[3]>0).length;
+    $('lvTurnDesc').innerHTML='라이브 세트 '+fmt.format(V.sets)+'개 · 턴 '+fmt.format(V.turns.length)+'회'+(V.turns.length<SV_MIN*5?' <span class="sv-small">표본 적음</span>':'')+(!lvInt&&V.turnsInt?' · 사내 추정 턴 '+fmt.format(V.turnsInt)+'회 제외':'');
+    $('lvTurnKpis').innerHTML=
+      sub(tile('면접관 첫 소리',lvSec(lvQ(snd,.5))),'중앙값 · 상위 10% '+lvSec(lvQ(snd,.9))+' · '+snd.length+'회')+
+      sub(tile('답변 넘김 → 응답 요청',lvSec(lvQ(rep,.5))),'중앙값 · API '+lvSec(lvQ(api,.5)))+
+      sub(tile('무음 → 넘김 대기',lvSec(lvQ(wt,.5))),'중앙값 · 무음 넘김 '+wt.length+'회')+
+      sub(tile('끊길 뻔한 턴',V.turns.length?rate(near,V.turns.length):null,null,null,'%'),fmt.format(near)+' / '+fmt.format(V.turns.length)+'턴 · 차례 열림 '+lvSec(lvQ(gp,.5)));
+    const cnt=(xs)=>xs.reduce((m,k)=>(m[k]=(m[k]||0)+1,m),{});
+    const rs=cnt(V.turns.map(r=>r[1]==='silence'&&r[2]?'silence:'+r[2]:r[1]));
+    $('lvReason').innerHTML=svBars(Object.entries(rs).map(([k,n])=>{ const [a,b]=k.split(':'); return {label:esc((LV_REASON[a]||a)+(b?' · '+(LV_ENDBY[b]||b):'')),n,color:'var(--s1)'}; }).sort((a,b)=>b.n-a.n),V.turns.length,'선택한 기간에 라이브 턴 기록이 없습니다.');
+    $('lvDecision').innerHTML=svBars(Object.entries(cnt(V.replies.map(r=>r[1]))).map(([k,n])=>({label:esc(LV_DECISION[k]||k),n,color:'var(--s7)'})).sort((a,b)=>b.n-a.n),V.replies.length,'선택한 기간에 라이브 응답 기록이 없습니다.'); }
+  bindTips($('tab-live'));
+}
+document.getElementById('lvInt')?.addEventListener('change',e=>{ lvInt=e.target.checked; renderLive(); });
+function liveSync(){ const el=document.getElementById('tab-live'); if(el&&!el.hidden) renderLive(); }
 function renderTp(){
   $('tpSince').textContent=TP.since;
   $('tpKpis').innerHTML=tile('등록 인재',TP.users,null,'사람 수 (중복 제거)','명')+tile('등록 이력서',TP.docs,null,'확정 문서 수','건')+tile('연결 공고',TP.positions,null,'포지션 수','개');
