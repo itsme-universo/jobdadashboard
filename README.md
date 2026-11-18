@@ -13,12 +13,13 @@ MongoDB(jobda) 행동 데이터를 집계해 정적 HTML로 서빙하는 대시�
 ## 생성/갱신
 ```
 cd tools/jobda-report && npm install
-MONGODB_PASSWORD=... node build.cjs   # strategy/jobdabehavior/ 아래 재생성
+MONGODB_USER=... MONGODB_PASSWORD=... node build.cjs   # 본인 MongoDB 계정 · strategy/jobdabehavior/ 아래 재생성
 ```
+사내 PC 일별 갱신(`tools/jobda-report/daily-local.sh`)은 `tools/jobda-report/.env.local`의 `MONGODB_USER`·`MONGODB_PASSWORD`를 읽습니다.
 
 ## 자동화
 `.github/workflows/jobda-daily-report.yml` — 매일 KST 08시 실행 → 변경분을 PR로 생성.
-필요: 저장소 Secret `MONGODB_PASSWORD`, Atlas Network Access에 GitHub Actions IP 허용,
+필요: 저장소 Secret `MONGODB_USER`·`MONGODB_PASSWORD`, Atlas Network Access에 GitHub Actions IP 허용,
 Settings→Actions→General→"Allow GitHub Actions to create and approve pull requests" ON.
 
 ## 원칙

@@ -11,12 +11,13 @@ MongoDB(jobda)에 직접 접속해 정적 리포트 페이지를 생성합니다
 ```
 cd tools/jobda-report
 npm install
-MONGODB_PASSWORD=... node build.cjs
+MONGODB_USER=... MONGODB_PASSWORD=... node build.cjs   # 본인 MongoDB 계정
 ```
+사내 PC 일별 갱신(`daily-local.sh`)은 이 폴더의 `.env.local`에서 `MONGODB_USER`·`MONGODB_PASSWORD`를 읽습니다.
 
 ## 자동화
 `.github/workflows/jobda-daily-report.yml` 가 매일 KST 08시 실행 → 변경분을 PR로 생성.
-필요: 저장소 Secret `MONGODB_PASSWORD`, Atlas Network Access에 GitHub Actions IP 허용,
+필요: 저장소 Secret `MONGODB_USER`·`MONGODB_PASSWORD`, Atlas Network Access에 GitHub Actions IP 허용,
 그리고 Settings→Actions→General→"Allow GitHub Actions to create and approve pull requests" ON.
 
 ## 원칙
