@@ -545,7 +545,7 @@
       <details class="tbl"><summary>표 보기</summary><div class="scroll" id="tLvUsage"></div></details>
     </div>
     <div class="card wide">
-      <h3>② 라이브 연습 일별 추이 <span class="tip" tabindex="0" data-tip="③의 단계 도달을 세션이 처음 들어온 날 기준으로 일별로 나눈 것. 연습 시작 클릭 → 세트 생성(크레딧 차감) → 응시 시작 → 연습 완료(결과표 생성). 면접연습 탭의 ‘토큰 사용 추이’에 해당.">ⓘ</span></h3>
+      <h3>② 라이브 연습 일별 추이 <span class="tip" tabindex="0" data-tip="③의 단계 도달을 세션이 처음 들어온 날 기준으로 일별로 나눈 것. 연습 시작 클릭 → 세트 생성(크레딧·이용권 차감) → 응시 시작 → 연습 완료(결과표 생성). 면접연습 탭의 ‘토큰 사용 추이’에 해당.">ⓘ</span></h3>
       <p class="desc">라이브 세션 · 막대 = 연습 정보 화면까지 온 세션 · 선 = 연습 시작 클릭 · 세트 생성 · 연습 완료</p>
       <div class="plot" style="height:220px"><canvas id="cLvDaily"></canvas></div>
       <details class="tbl"><summary>표 보기</summary><div class="scroll" id="tLvDaily"></div></details>
@@ -567,8 +567,8 @@
   <h2 class="section" style="margin-top:28px">연습 안에서 <span class="tip" tabindex="0" data-tip="라이브 세트(assignmentSetSn) 단위 · 세트를 만든 날 기준. 라이브 연습은 질문·답변을 일반 연습의 INTERVIEW_QUESTION/ANSWER_SUBMIT 대신 턴 로그(INTERVIEW_LIVE_TURN_END · REPLY)로 남겨, 답변 수 = 넘김(턴) 수로 셉니다. 발화 내용은 싣지 않습니다.">ⓘ</span></h2>
   <div class="grid">
     <div class="card wide">
-      <h3>⑤ 라이브 세트 결과 <span class="tip" tabindex="0" data-tip="세트 = kind가 live인 이벤트에 실린 assignmentSetSn. 응시 시작 = INTERVIEW_ATTEMPT_START, 연습 화면 진입 = 면접관 오프닝(INTERVIEW_LIVE_OPENING), 완료 = 결과표 생성 요청(INTERVIEW_REPORT_CREATE). 소요 = 응시 시작 → 결과표 요청(이어하기 없는 세트만). 꼬리질문 = 면접관 판단이 FOLLOW_UP인 응답 수.">ⓘ</span></h3>
-      <p class="desc">면접연습 탭의 ‘토큰 사용 이후’ · ‘흐름별 구성과 소요 시간’에 해당 · 세트 1개 = 크레딧 차감 1회</p>
+      <h3>⑤ 라이브 세트 결과 <span class="tip" tabindex="0" data-tip="세트 = 세트 생성 이벤트(INTERVIEW_SET_CREATE)가 kind=live이거나 라이브 면접관 이벤트(INTERVIEW_LIVE_*)가 있는 assignmentSetSn. 3D 세트의 일부 이벤트에 kind=live가 실려도 라이브 세트로 세지 않습니다. 응시 시작 = INTERVIEW_ATTEMPT_START, 연습 화면 진입 = 면접관 오프닝(INTERVIEW_LIVE_OPENING), 완료 = 결과표 생성 요청(INTERVIEW_REPORT_CREATE). 소요 = 응시 시작 → 결과표 요청(이어하기 없는 세트만). 꼬리질문 = 면접관 판단이 FOLLOW_UP인 응답 수.">ⓘ</span></h3>
+      <p class="desc">면접연습 탭의 ‘토큰 사용 이후’ · ‘흐름별 구성과 소요 시간’에 해당 · 세트 1개 = 크레딧·이용권 차감 1회</p>
       <div class="kpis" id="lvSetKpis" style="margin-bottom:8px"></div>
       <details class="tbl"><summary>세트별 보기</summary><div class="scroll" id="tLvSets"></div></details>
     </div>
@@ -1434,7 +1434,7 @@ function renderLive(){
   const live=V.to&&V.to>=LIVE.from;
   $('lvKpis').innerHTML=
     sub(tile('라이브 선택'+info('환경설정 완료를 라이브 면접관으로 누른 세션(일별 합). 비율 = 라이브 / (라이브 + 일반).'),uL,null,null,'세션'),'면접관 선택 중 '+rate(uL,uL+u3)+'%')+
-    sub(tile('라이브 연습 시작'+info('라이브로 질문 세트 생성(크레딧 차감)까지 간 세션.'),L[6],null,null,'세션'),'환경설정 완료 대비 '+rate(L[6],L[1])+'%')+
+    sub(tile('라이브 연습 시작'+info('라이브로 질문 세트 생성(크레딧·이용권 차감)까지 간 세션.'),L[6],null,null,'세션'),'환경설정 완료 대비 '+rate(L[6],L[1])+'%')+
     sub(tile('라이브 연습 완료'+info('결과표 생성까지 간 라이브 세션.'),L[8],null,null,'세션'),'라이브 세트 '+fmt.format(V.sets)+'개 · 응시 시작 '+fmt.format(V.setRows.filter(r=>r[3]).length)+'개')+
     sub(tile('사전 신청 완료'+info('라이브 면접 사전 신청(LIVE_INTERVIEW_PRE_REGISTER COMPLETE)을 한 세션.'),preTot[4],null,null,'세션'),'사전 신청 페이지 '+fmt.format(preTot[2])+' 세션 중 '+rate(preTot[4],preTot[2])+'%');
   $('lvIntNote').innerHTML=(!lvInt&&(V.setsInt||V.turnsInt))?'<span class="sv-small">사내 추정 세트 '+fmt.format(V.setsInt)+'개 · 턴 '+fmt.format(V.turnsInt)+'회 제외됨</span>':'';
@@ -1475,14 +1475,14 @@ function renderLive(){
   if(live){ const R=V.setRows, at=R.filter(r=>r[3]), op=R.filter(r=>r[9]), dn=R.filter(r=>r[4]), mins=R.map(r=>r[5]).filter(x=>x!=null), tr=op.map(r=>r[6]);
     const tt=tr.reduce((a,b)=>a+b,0), fu=op.reduce((a,r)=>a+r[7],0), md=lvQ(mins,.5);
     $('lvSetKpis').innerHTML=
-      sub(tile('라이브 세트'+info('크레딧을 써서 만든 라이브 질문 세트(세트를 만든 날 기준).'),R.length,null,null,'개'),R.length<SV_MIN?'<span class="sv-small">표본 적음</span>':'선택한 기간')+
+      sub(tile('라이브 세트'+info('크레딧·이용권을 써서 만든 라이브 질문 세트(세트를 만든 날 기준).'),R.length,null,null,'개'),R.length<SV_MIN?'<span class="sv-small">표본 적음</span>':'선택한 기간')+
       sub(tile('응시 시작',R.length?rate(at.length,R.length):null,null,null,'%'),fmt.format(at.length)+' / '+fmt.format(R.length)+'세트 · 연습 화면 진입 '+fmt.format(op.length))+
       sub(tile('결과표까지 완료',R.length?rate(dn.length,R.length):null,null,null,'%'),fmt.format(dn.length)+' / '+fmt.format(R.length)+'세트 · 이어하기 '+fmt.format(R.filter(r=>r[8]).length))+
       sub(tile('소요 시간',md==null?null:md.toFixed(1),null,null,'분'),'중앙값 · 응시 → 결과표 · '+mins.length+'세트')+
       sub(tile('세트당 답변 턴',tr.length?String(lvQ(tr,.5)):null,null,null,'회'),'중앙값 · 꼬리질문 '+fmt.format(fu)+'회 ('+(tt?rate(fu,tt):'–')+'% / 턴)');
     $('tLvSets').innerHTML=R.length?'<table><thead><tr><th>만든 날</th><th>질문 수 설정</th><th>응시 시작</th><th>연습 화면</th><th>답변 턴</th><th>꼬리질문</th><th>이어하기</th><th>완료</th><th>소요(분)</th>'+(lvInt?'<th>사내 추정</th>':'')+'</tr></thead><tbody>'
       +R.map(r=>'<tr><td>'+r[0]+'</td><td>'+(r[2]??'–')+'</td><td>'+(r[3]?'✓':'')+'</td><td>'+(r[9]?'✓':'')+'</td><td>'+r[6]+'</td><td>'+r[7]+'</td><td>'+(r[8]?'✓':'')+'</td><td>'+(r[4]?'✓':'')+'</td><td>'+(r[5]??'–')+'</td>'+(lvInt?'<td>'+(r[1]?'✓':'')+'</td>':'')+'</tr>').join('')+'</tbody></table>'
-      +'<p class="sv-note">‘완료’인데 연습 화면 진입이 없는 세트는 결과표 이벤트에만 라이브 표시가 실린 경우로, 턴 로그가 없습니다.</p>':'<div class="sv-empty">선택한 기간에 만든 라이브 세트가 없습니다'+(!lvInt&&V.setsInt?' (사내 추정 '+V.setsInt+'개 제외)':'')+'.</div>'; }
+      :'<div class="sv-empty">선택한 기간에 만든 라이브 세트가 없습니다'+(!lvInt&&V.setsInt?' (사내 추정 '+V.setsInt+'개 제외)':'')+'.</div>'; }
   // ⑥ 답변 차례별 진행
   if(live){ const S=V.setRows.filter(r=>r[9]), mx=Math.max(0,...S.map(r=>r[6]+(r[4]?0:1))), el=$('lvTurnDrop');
     if(!S.length) el.innerHTML='<div class="sv-empty">선택한 기간에 연습 화면에 들어온 라이브 세트가 없습니다'+(!lvInt&&V.setsInt?' (사내 추정 세트 제외 · 위 ‘사내 추정 계정 포함’을 켜면 보입니다)':'')+'.</div>';
