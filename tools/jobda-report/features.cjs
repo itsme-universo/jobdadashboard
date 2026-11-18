@@ -336,7 +336,7 @@ async function buildActiveUsers(db, until) {
 //  사전 신청은 세션 단위 · 진입점(entry)은 세션의 첫 라이브 사전 신청 이벤트 기준. 턴 로그는 발화 내용 없이 수치만
 const LIVE_FROM = '2026-10-29', PRE_FROM = '2026-10-16';
 const LIVE_STAGES = [['setup_view', '환경설정 화면'], ['setting', '환경설정 완료'], ['job_input', '공고 입력 화면'], ['job_done', '공고 분석 완료'], ['info', '연습 정보 확인'],
-  ['start', '연습 시작 클릭'], ['set', '세트 생성(크레딧 차감)'], ['attempt', '응시 시작'], ['report', '연습 완료(결과표 생성)']];
+  ['start', '연습 시작 클릭'], ['set', '세트 생성(크레딧·이용권 차감)'], ['attempt', '응시 시작'], ['report', '연습 완료(결과표 생성)']];
 const liveStage = (e) => {
   const t = e.e, y = e.y, st = e.step == null ? null : String(e.step);
   if (t === 'INTERVIEW_STEP' && y === 'VIEW') return st === '1' ? 0 : st === '3' ? 2 : st === '4' ? 4 : -1;
@@ -384,14 +384,20 @@ async function buildLive(db, { to, cutoff = new Date() } = {}) {
   // 3. 라이브 세트 · 턴 지연 (발화 내용 없음)
   const turnEv = await agg(tl, [{ $match: { timestamp: T(LIVE_FROM), 'metadata.kind': 'live', eventTarget: { $in: ['INTERVIEW_LIVE_TURN_END', 'INTERVIEW_LIVE_REPLY', 'INTERVIEW_LIVE_FIRST_SOUND', 'INTERVIEW_LIVE_TURN_OPEN', 'INTERVIEW_LIVE_OPENING', 'INTERVIEW_LIVE_CONNECT'] } } },
     { $project: { _id: 0, e: '$eventTarget', y: '$eventType', t: '$timestamp', sn: '$metadata.assignmentSetSn', m: '$metadata', u: '$userSn' } }]);
-  // 라이브 세트: kind=live 이벤트에 실린 assignmentSetSn. 세트 주인이 사내 추정 계정이면 그 세트의 행 전부에 int=1
-  const setEv = await agg(tl, [{ $match: { timestamp: T(LIVE_FROM), 'metadata.kind': 'live', 'metadata.assignmentSetSn': { $ne: null } } },
+  // 라이브 세트 = 세트 생성(INTERVIEW_SET_CREATE COMPLETE)이 kind=live이거나 라이브 면접관 이벤트(INTERVIEW_LIVE_*)가 있는 assignmentSetSn
+  //  후보는 kind=live 이벤트에 실린 세트 번호. 3D 세트도 분석 스낵바·결과표 요청 등 일부 이벤트가 kind=live로 찍혀 후보에 섞이므로,
+  //  판정과 집계는 세트의 이벤트 전체(kind 무관)로 한다. 세트 주인이 사내 추정 계정이면 그 세트의 행 전부에 int=1
+  const LIVE_SET_EV = ['INTERVIEW_LIVE_OPENING', 'INTERVIEW_LIVE_TURN_OPEN', 'INTERVIEW_LIVE_TURN_END', 'INTERVIEW_LIVE_REPLY', 'INTERVIEW_LIVE_FIRST_SOUND', 'INTERVIEW_LIVE_CONNECT'];
+  const candSn = (await agg(tl, [{ $match: { timestamp: T(LIVE_FROM), 'metadata.kind': 'live', 'metadata.assignmentSetSn': { $ne: null } } }, { $group: { _id: '$metadata.assignmentSetSn' } }])).map((r) => r._id);
+  const isCreate = { $and: [{ $eq: ['$eventTarget', 'INTERVIEW_SET_CREATE'] }, { $eq: ['$eventType', 'COMPLETE'] }] };
+  const setEv = (await agg(tl, [{ $match: { timestamp: T(LIVE_FROM), 'metadata.assignmentSetSn': { $in: candSn } } },
     { $group: { _id: '$metadata.assignmentSetSn', u: { $max: '$userSn' }, t0: { $min: '$timestamp' },
-      created: { $min: { $cond: [{ $and: [{ $eq: ['$eventTarget', 'INTERVIEW_SET_CREATE'] }, { $eq: ['$eventType', 'COMPLETE'] }] }, '$timestamp', null] } },
+      created: { $min: { $cond: [isCreate, '$timestamp', null] } }, createdLive: flag({ $and: [isCreate, { $eq: ['$metadata.kind', 'live'] }] }), liveEv: flag({ $in: ['$eventTarget', LIVE_SET_EV] }),
       qc: { $max: '$metadata.questionCount' }, attemptT: { $min: { $cond: [{ $eq: ['$eventTarget', 'INTERVIEW_ATTEMPT_START'] }, '$timestamp', null] } },
       reportT: { $min: { $cond: [{ $eq: ['$eventTarget', 'INTERVIEW_REPORT_CREATE'] }, '$timestamp', null] } }, resume: flag({ $eq: ['$eventTarget', 'INTERVIEW_RESUME'] }),
       opening: flag({ $eq: ['$eventTarget', 'INTERVIEW_LIVE_OPENING'] }), turns: { $sum: { $cond: [{ $eq: ['$eventTarget', 'INTERVIEW_LIVE_TURN_END'] }, 1, 0] } },
-      follow: { $sum: { $cond: [{ $and: [{ $eq: ['$eventTarget', 'INTERVIEW_LIVE_REPLY'] }, { $eq: ['$metadata.decision', 'FOLLOW_UP'] }] }, 1, 0] } } } }]);
+      follow: { $sum: { $cond: [{ $and: [{ $eq: ['$eventTarget', 'INTERVIEW_LIVE_REPLY'] }, { $eq: ['$metadata.decision', 'FOLLOW_UP'] }] }, 1, 0] } } } }]))
+    .filter((r) => r.createdLive || r.liveEv);
   const setInt = new Map(setEv.map((r) => [r._id, internal.has(r.u) ? 1 : 0]));
   // setRows: [d(만든 날, 없으면 첫 이벤트 날), 사내, 질문 수, 응시 시작, 완료(결과표), 소요 분(응시→결과표, 이어하기 없는 것만), 답변 턴 수, 꼬리질문 수, 이어하기, 연습 화면 진입(오프닝)]
   const setRows = setEv.map((r) => [dayOf(r.created || r.t0), setInt.get(r._id), r.qc ?? null, r.attemptT ? 1 : 0, r.reportT ? 1 : 0,

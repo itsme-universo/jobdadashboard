@@ -15,9 +15,11 @@ const WEB = '/strategy/jobdabehavior/dailyarchive';
 const KST = '+09:00';
 const START = '2026-08-27';
 const CAMPAIGN_SINCE = '2026-09-09';
+const USER = process.env.MONGODB_USER;
 const PW = process.env.MONGODB_PASSWORD;
+if (!USER) { console.error('MONGODB_USER 필요 (MongoDB 접속 계정)'); process.exit(1); }
 if (!PW) { console.error('MONGODB_PASSWORD 필요'); process.exit(1); }
-const uri = `mongodb+srv://pwj0507:${encodeURIComponent(PW)}@kr-pr-mongodb-jobda-v1-pl-2.xmxtn.mongodb.net/?readPreference=secondaryPreferred`;
+const uri = `mongodb+srv://${encodeURIComponent(USER)}:${encodeURIComponent(PW)}@kr-pr-mongodb-jobda-v1-pl-2.xmxtn.mongodb.net/?readPreference=secondaryPreferred`;
 
 const CM_ROUTE = 'CAREER_MEMORY_SLUG';
 const ROCKET_STAGES = ['ROCKET_APPLY_STEP','ROCKET_APPLY_START','ROCKET_ATS_ACCOUNT','ROCKET_DRAFT_CREATE','ROCKET_AUTOFILL_END','ROCKET_SECTION_REVIEW','ROCKET_SUBMIT'];
